@@ -13,7 +13,7 @@ plt.rcParams["font.family"] = "NanumGothic"
 # tkinter 창 생성
 root = Tk()
 root.title("CSV Table Viewer")
-root.geometry("600x300")
+root.geometry("600x800")
 
 # 데이터폴더 경로
 data_folder = "data"
@@ -130,17 +130,17 @@ def show_table_contents(event):
             connection.close()
 
 
-# 리스트박스에 데이터베이스에 저장된 테이블 이름 추가
-list_file = Listbox(root, width=50, height=10)
-cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
-table_names = cursor.fetchall()
-table_names = [name[0] for name in table_names]
-for table_name in table_names:
-    list_file.insert(END, table_name)
-list_file.pack()
-
-# 리스트박스가 변경되었을 때 show_table_contents 함수를 호출하도록 바인딩
-list_file.bind('<<ListboxSelect>>', show_table_contents)
+# # 리스트박스에 데이터베이스에 저장된 테이블 이름 추가
+# list_file = Listbox(root, width=50, height=10)
+# cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
+# table_names = cursor.fetchall()
+# table_names = [name[0] for name in table_names]
+# for table_name in table_names:
+#     list_file.insert(END, table_name)
+# list_file.pack()
+#
+# # 리스트박스가 변경되었을 때 show_table_contents 함수를 호출하도록 바인딩
+# list_file.bind('<<ListboxSelect>>', show_table_contents)
 
 # CSV 파일 선택 버튼
 csv_button = Button(root, text="Select CSV File", command=select_csv_files)
