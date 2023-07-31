@@ -1,6 +1,5 @@
 import tkinter as tk
-from tkinter import filedialog
-from tkinter import Listbox, END
+from tkinter import Tk, Button, Listbox, END, filedialog
 import os
 import re
 import sqlite3
@@ -11,38 +10,48 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 # Matplotlib 폰트 설정 (예시로 나눔고딕 폰트를 사용합니다.)
 plt.rcParams["font.family"] = "NanumGothic"
 
-# 데이터베이스 파일 경로
-db_file = 'data.db'
+# tkinter 창 생성
+root = Tk()
+root.title("CSV Table Viewer")
+root.geometry("600x300")
 
-# Tkinter 창 생성
-root = tk.Tk()
-root.title("BOM Data Viewer")
-root.geometry("800x800")
+# 데이터폴더 경로
+data_folder = "data"
+
+# 삭제한 테이블 이름들을 저장할 파일 경로
+deleted_tables_file = "deleted_tables.txt"
+
+# 데이터폴더가 없을 경우 생성
+if not os.path.exists(data_folder):
+    os.makedirs(data_folder)
 
 # 데이터베이스 연결
 connection = sqlite3.connect('data.db')
 cursor = connection.cursor()
 
-# 삭제된 테이블 목록 불러오기
-deleted_tables_file = 'deleted_tables.txt'
-if os.path.exists(deleted_tables_file):
-    with open(deleted_tables_file, 'r') as file:
-        deleted_tables = file.read().splitlines()
-else:
-    deleted_tables = []
+# 이전에 삭제한 테이블 이름을 저장할 리스트
+deleted_tables = []
 
-# 파일 불러오기 함수
-def open_files():
+def sanitize_column_name(name):
+    # Replace any non-word characters (except comma, parentheses, and underscore) with underscores
+    sanitized_name = re.sub(r"[^\w,()]", "_", name)
+    return sanitized_name
+
+# CSV 파일을 선택하는 함수
+def select_csv_files():
     global csv_filenames
-    csv_filenames = filedialog.askopenfilenames(initialdir=".", title="Select CSV files",
-                                                filetypes=(("CSV files", "*.csv"), ("all files", "*.*")))
+    csv_filenames = filedialog.askopenfilenames(filetypes=[("CSV files", "*.csv")])
+    csv_button.config(text="Selected: {} file(s)".format(len(csv_filenames)))
+    # 선택한 파일 목록 표시
+    list_file.delete(0, END)
+    for file in csv_filenames:
+        list_file.insert(END, os.path.basename(file))
 
-    if csv_filenames:
-        save_csv_to_database()
 
 # 데이터베이스에 CSV 파일을 저장하는 함수
 def save_csv_to_database():
     global deleted_tables
+    connection = sqlite3.connect('data.db')
     for filename in csv_filenames:
         # 1~4번째 라인을 스킵하고 5번째 라인부터 데이터를 읽어들임
         df = pd.read_csv(filename, encoding='cp949', skiprows=4, header=0)
@@ -76,13 +85,15 @@ def save_csv_to_database():
     for table_name in table_names:
         list_file.insert(END, table_name)
 
+    connection.close()
+
 # 삭제 버튼
 def delete_selected_table():
     selected_table_index = list_file.curselection()
     if selected_table_index:
         selected_table_index = selected_table_index[0]
         selected_table = list_file.get(selected_table_index)
-        sanitized_table = re.sub(r"[^\w]", "_", selected_table)
+        sanitized_table = sanitize_column_name(selected_table)
 
         connection = sqlite3.connect('data.db')
         cursor = connection.cursor()
@@ -101,20 +112,56 @@ def delete_selected_table():
         finally:
             connection.close()
 
-
 # 테이블 선택 시 내용 출력
 def show_table_contents(event):
     selected_table = list_file.get(list_file.curselection())
     if selected_table:
+        sanitized_table = sanitize_column_name(selected_table)
         connection = sqlite3.connect('data.db')
         cursor = connection.cursor()
-        cursor.execute("SELECT * FROM {}".format(selected_table))
-        df = pd.DataFrame(cursor.fetchall(), columns=[col[0] for col in cursor.description])
 
-        # 그래프 그리기
-        plot_graph(df, selected_table)
+        try:
+            cursor.execute("SELECT * FROM {}".format(sanitized_table))
+            df = pd.DataFrame(cursor.fetchall(), columns=[col[0] for col in cursor.description])
+            print(df)  # 여기서 선택한 테이블의 내용을 출력하도록 하세요
+        except sqlite3.Error as e:
+            print("Error while fetching data from table:", e)
+        finally:
+            connection.close()
 
 
+# 리스트박스에 데이터베이스에 저장된 테이블 이름 추가
+list_file = Listbox(root, width=50, height=10)
+cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
+table_names = cursor.fetchall()
+table_names = [name[0] for name in table_names]
+for table_name in table_names:
+    list_file.insert(END, table_name)
+list_file.pack()
+
+# 리스트박스가 변경되었을 때 show_table_contents 함수를 호출하도록 바인딩
+list_file.bind('<<ListboxSelect>>', show_table_contents)
+
+# CSV 파일 선택 버튼
+csv_button = Button(root, text="Select CSV File", command=select_csv_files)
+csv_button.pack()
+
+# CSV 파일 저장 버튼
+save_button = Button(root, text="Save CSV to Database", command=save_csv_to_database)
+save_button.pack()
+
+# 삭제 버튼
+delete_button = Button(root, text="Delete Selected Table", command=delete_selected_table)
+delete_button.pack()
+
+# 프로그램 종료 시 삭제한 테이블 이름을 파일에 저장
+def on_closing():
+    with open(deleted_tables_file, 'w') as file:
+        file.write("\n".join(deleted_tables))
+    root.destroy()
+
+# tkinter 창이 닫힐 때 on_closing 함수 호출
+root.protocol("WM_DELETE_WINDOW", on_closing)
 # 검색 기능 구현
 search_label = tk.Label(root, text="Search:")
 search_label.pack(pady=5)
