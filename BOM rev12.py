@@ -10,7 +10,7 @@ import tkinter as tk
 # tkinter 창 생성
 root = Tk()
 root.title("CSV Table Viewer")
-root.geometry("600x800")
+root.geometry("1000x800")
 
 # 데이터폴더 경로
 data_folder = "data"
@@ -85,11 +85,11 @@ def save_csv_to_database():
     connection.close()
 
 
-
-
-
 # Matplotlib 폰트 설정 (예시로 나눔고딕 폰트를 사용합니다.)
 plt.rcParams["font.family"] = "NanumGothic"
+
+# 데이터베이스 파일 이름
+db_file = "data.db"
 
 # 삭제 버튼
 def delete_selected_table():
@@ -138,10 +138,10 @@ def show_table_contents(event):
 
 # 검색 기능 구현
 search_label = tk.Label(root, text="Search:")
-search_label.pack(pady=5)
+search_label.pack(side=tk.LEFT, anchor='ne', padx=10, pady=20)
 
 search_entry = tk.Entry(root)
-search_entry.pack(pady=5)
+search_entry.pack(side=tk.LEFT, anchor='ne', padx=10, pady=20)
 
 def search_table():
     keyword = search_entry.get()
@@ -161,19 +161,22 @@ def search_table():
         for table_name in table_names:
             list_file.insert(END, table_name)
 
-# 리스트박스1에 데이터베이스에 저장된 테이블 이름 추가
-list_file = Listbox(root, width=50, height=10)
-cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
-table_names = cursor.fetchall()
-table_names = [name[0] for name in table_names]
-for table_name in table_names:
-    list_file.insert(END, table_name)
-list_file.pack()
+search_button = tk.Button(root, text="Search", command=search_table)
+search_button.pack(side=tk.LEFT, anchor='ne',pady=15)
+
+# # 리스트박스1에 데이터베이스에 저장된 테이블 이름 추가
+# list_file = Listbox(root, width=50, height=10)
+# cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
+# table_names = cursor.fetchall()
+# table_names = [name[0] for name in table_names]
+# for table_name in table_names:
+#     list_file.insert(END, table_name)
+# list_file.pack()
 
 #overlap listbox
 # 리스트박스2: 선택된 항목들을 표시하는 리스트박스
 selected_list = Listbox(root, width=50, height=10)
-selected_list.pack(side=tk.LEFT)
+selected_list.pack(side=tk.RIGHT,anchor='ne', padx=30)
 
 # 리스트박스1에서 항목을 선택하면 리스트박스2로 옮기는 함수
 def move_to_selected():
@@ -231,16 +234,17 @@ def update_graph():
 
 
 # 그래프를 그리는 함수
-def plot_graph(df, title, line_width=1, line_style='-'):
+def plot_graph(df, title, *args):
     # 그래프 그리기
     plt.figure(figsize=(8, 6))
     for col in df.columns[1:]:
-        plt.semilogx(df['Frequency'], df[col], linestyle=line_style, linewidth=line_width, label=col)
+        plt.semilogx(df['Frequency'], df[col], *args, label=col)
     plt.xlabel("Frequency")
     plt.ylabel("Value")
     plt.title(title)
     plt.grid(True)
     plt.legend()
+    plt.xscale('log')  # x축을 로그 스케일로 설정
 
     # 그래프를 tkinter 창에 출력
     if hasattr(root, 'canvas'):
@@ -249,6 +253,7 @@ def plot_graph(df, title, line_width=1, line_style='-'):
     root.canvas.draw()
     root.canvas.get_tk_widget().pack()
 
+#메인 리스트 박스
 # 리스트박스에 데이터베이스에 저장된 테이블 이름 추가
 list_file = Listbox(root, width=50, height=10)
 cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
