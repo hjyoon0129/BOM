@@ -194,9 +194,9 @@ def remove_from_selected():
 button_frame = tk.Frame(root)
 button_frame.pack()
 add_button = tk.Button(button_frame, text="Add to Selected", command=move_to_selected)
-add_button.pack(pady=5)
+add_button.pack(side=tk.LEFT,pady=1)
 remove_button = tk.Button(button_frame, text="Remove from Selected", command=remove_from_selected)
-remove_button.pack(pady=5)
+remove_button.pack(side=tk.LEFT, pady=1)
 
 def update_graph():
     selected_columns = selected_list.get(0, tk.END)  # 선택된 항목들 가져오기
@@ -262,6 +262,8 @@ table_names = [name[0] for name in table_names]
 for table_name in table_names:
     list_file.insert(END, table_name)
 list_file.pack()
+
+
 
 # 리스트박스가 변경되었을 때 show_table_contents 함수를 호출하도록 바인딩
 list_file.bind('<<ListboxSelect>>', show_table_contents)
