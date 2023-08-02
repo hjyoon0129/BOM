@@ -136,12 +136,7 @@ def show_table_contents(event):
         finally:
             connection.close()
 
-# 검색 기능 구현
-search_label = tk.Label(root, text="Search:")
-search_label.pack(side=tk.LEFT, anchor='ne', padx=10, pady=20)
 
-search_entry = tk.Entry(root)
-search_entry.pack(side=tk.LEFT, anchor='ne', padx=10, pady=20)
 
 def search_table():
     keyword = search_entry.get()
@@ -161,8 +156,29 @@ def search_table():
         for table_name in table_names:
             list_file.insert(END, table_name)
 
-search_button = tk.Button(root, text="Search", command=search_table)
-search_button.pack(side=tk.LEFT, anchor='ne',pady=15)
+# 검색 기능 구현
+search_frame = tk.Frame(root)
+search_frame.pack(side=tk.TOP, anchor='w', padx=10, pady=10)
+
+search_label = tk.Label(search_frame, text="Search:")
+search_label.pack(side=tk.LEFT, anchor='ne', padx=10, pady=20)
+
+search_entry = tk.Entry(search_frame)
+search_entry.pack(side=tk.LEFT, anchor='ne', padx=10, pady=20)
+
+search_button = tk.Button(search_frame, text="Search", command=search_table)
+search_button.pack(side=tk.RIGHT, anchor='ne', pady=15)
+
+#메인 리스트 박스
+# 리스트박스에 데이터베이스에 저장된 테이블 이름 추가
+list_file = Listbox(root, width=50, height=10)
+cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
+table_names = cursor.fetchall()
+table_names = [name[0] for name in table_names]
+for table_name in table_names:
+    list_file.insert(END, table_name)
+list_file.pack(side=tk.TOP, anchor='w', padx=10, pady=10)
+
 
 # # 리스트박스1에 데이터베이스에 저장된 테이블 이름 추가
 # list_file = Listbox(root, width=50, height=10)
@@ -253,15 +269,6 @@ def plot_graph(df, title, *args):
     root.canvas.draw()
     root.canvas.get_tk_widget().pack()
 
-#메인 리스트 박스
-# 리스트박스에 데이터베이스에 저장된 테이블 이름 추가
-list_file = Listbox(root, width=50, height=10)
-cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
-table_names = cursor.fetchall()
-table_names = [name[0] for name in table_names]
-for table_name in table_names:
-    list_file.insert(END, table_name)
-list_file.pack()
 
 
 
