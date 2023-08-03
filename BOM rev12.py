@@ -10,7 +10,7 @@ import tkinter as tk
 # tkinter 창 생성
 root = Tk()
 root.title("CSV Table Viewer")
-root.geometry("1000x800")
+# root.geometry("1000x800")
 
 # 데이터폴더 경로
 data_folder = "data"
@@ -169,27 +169,29 @@ search_entry.pack(side=tk.LEFT, anchor='ne', padx=10, pady=20)
 search_button = tk.Button(search_frame, text="Search", command=search_table)
 search_button.pack(side=tk.RIGHT, anchor='ne', pady=15)
 
-#메인 리스트 박스
-# 리스트박스에 데이터베이스에 저장된 테이블 이름 추가
-list_file = Listbox(root, width=50, height=10)
-cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
-table_names = cursor.fetchall()
-table_names = [name[0] for name in table_names]
-for table_name in table_names:
-    list_file.insert(END, table_name)
-list_file.pack(side=tk.TOP, anchor='w', padx=10, pady=10)
-
 # CSV 파일 선택 버튼
 csv_button = Button(root, text="Select CSV File", command=select_csv_files)
 csv_button.pack(side=tk.LEFT, anchor='ne')
 
 # CSV 파일 저장 버튼
 save_button = Button(root, text="Save CSV to Database", command=save_csv_to_database)
-save_button.pack(side=tk.LEFT,anchor='ne')
+save_button.pack(side=tk.LEFT, anchor='ne')
 
 # 삭제 버튼
 delete_button = Button(root, text="Delete Selected Table", command=delete_selected_table)
-delete_button.pack(side=tk.TOP)
+delete_button.pack(side=tk.LEFT, anchor='ne')
+
+#메인 리스트 박스
+# 리스트박스에 데이터베이스에 저장된 테이블 이름 추가
+list_file = Listbox(root, width=100, height=10)
+cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
+table_names = cursor.fetchall()
+table_names = [name[0] for name in table_names]
+for table_name in table_names:
+    list_file.insert(END, table_name)
+    list_file.pack(side=tk.LEFT,anchor='ne',pady=10)
+
+
 
 
 #overlap listbox
