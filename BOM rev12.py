@@ -179,20 +179,23 @@ for table_name in table_names:
     list_file.insert(END, table_name)
 list_file.pack(side=tk.TOP, anchor='w', padx=10, pady=10)
 
+# CSV 파일 선택 버튼
+csv_button = Button(root, text="Select CSV File", command=select_csv_files)
+csv_button.pack(side=tk.LEFT, anchor='ne')
 
-# # 리스트박스1에 데이터베이스에 저장된 테이블 이름 추가
-# list_file = Listbox(root, width=50, height=10)
-# cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
-# table_names = cursor.fetchall()
-# table_names = [name[0] for name in table_names]
-# for table_name in table_names:
-#     list_file.insert(END, table_name)
-# list_file.pack()
+# CSV 파일 저장 버튼
+save_button = Button(root, text="Save CSV to Database", command=save_csv_to_database)
+save_button.pack(side=tk.LEFT,anchor='ne')
+
+# 삭제 버튼
+delete_button = Button(root, text="Delete Selected Table", command=delete_selected_table)
+delete_button.pack(side=tk.TOP)
+
 
 #overlap listbox
 # 리스트박스2: 선택된 항목들을 표시하는 리스트박스
 selected_list = Listbox(root, width=50, height=10)
-selected_list.pack(side=tk.RIGHT,anchor='ne', padx=30)
+selected_list.pack(side=tk.TOP,anchor='w', padx=10)
 
 # 리스트박스1에서 항목을 선택하면 리스트박스2로 옮기는 함수
 def move_to_selected():
@@ -206,13 +209,6 @@ def remove_from_selected():
     for index in selected_indices:
         selected_list.delete(index)
 
-# 버튼 생성
-button_frame = tk.Frame(root)
-button_frame.pack()
-add_button = tk.Button(button_frame, text="Add to Selected", command=move_to_selected)
-add_button.pack(side=tk.LEFT,pady=1)
-remove_button = tk.Button(button_frame, text="Remove from Selected", command=remove_from_selected)
-remove_button.pack(side=tk.LEFT, pady=1)
 
 def update_graph():
     selected_columns = selected_list.get(0, tk.END)  # 선택된 항목들 가져오기
@@ -269,23 +265,26 @@ def plot_graph(df, title, *args):
     root.canvas.draw()
     root.canvas.get_tk_widget().pack()
 
+# 그래프를 출력할 프레임
+graph_frame = tk.Frame(root)
+graph_frame.pack(side=tk.LEFT, anchor='ne', padx=10, pady=10)
 
 
 
 # 리스트박스가 변경되었을 때 show_table_contents 함수를 호출하도록 바인딩
 list_file.bind('<<ListboxSelect>>', show_table_contents)
 
-# CSV 파일 선택 버튼
-csv_button = Button(root, text="Select CSV File", command=select_csv_files)
-csv_button.pack()
 
-# CSV 파일 저장 버튼
-save_button = Button(root, text="Save CSV to Database", command=save_csv_to_database)
-save_button.pack()
 
-# 삭제 버튼
-delete_button = Button(root, text="Delete Selected Table", command=delete_selected_table)
-delete_button.pack()
+# 버튼 생성
+button_frame = tk.Frame(root)
+button_frame.pack()
+add_button = tk.Button(button_frame, text="Add to Selected", command=move_to_selected)
+add_button.pack(side=tk.LEFT,pady=1)
+remove_button = tk.Button(button_frame, text="Remove from Selected", command=remove_from_selected)
+remove_button.pack(side=tk.LEFT, pady=1)
+
+
 
 # 프로그램 종료 시 삭제한 테이블 이름을 파일에 저장
 def on_closing():
