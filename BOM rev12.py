@@ -10,7 +10,7 @@ import tkinter as tk
 # tkinter 창 생성
 root = Tk()
 root.title("CSV Table Viewer")
-# root.geometry("1000x800")
+root.geometry("1000x800")
 
 # 데이터폴더 경로
 data_folder = "data"
@@ -136,8 +136,6 @@ def show_table_contents(event):
         finally:
             connection.close()
 
-
-
 def search_table():
     keyword = search_entry.get()
     if keyword:
@@ -187,7 +185,9 @@ delete_button.pack(side=tk.LEFT, anchor='ne')
 
 #메인 리스트 박스
 # 리스트박스에 데이터베이스에 저장된 테이블 이름 추가
-list_file = Listbox(root, width=50, height=10)
+list_file = tk.Listbox(root, width=50, height=10)
+list_file.pack(side=tk.LEFT, padx=5, pady=10, anchor='ne')
+
 cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
 table_names = cursor.fetchall()
 table_names = [name[0] for name in table_names]
@@ -195,15 +195,7 @@ for table_name in table_names:
     list_file.insert(END, table_name)
 
 # 버튼들 Frame을 리스트 박스 아래에 배치
-buttons_frame.pack(side=tk.TOP, anchor='w', padx=10, pady=10)
-
-# 리스트 박스를 왼쪽에 고정하여 배치하고, 왼쪽으로 5 픽셀 이동
-list_file.pack(side=tk.LEFT, padx=5, pady=20)
-
-#overlap listbox
-# 리스트박스2: 선택된 항목들을 표시하는 리스트박스
-selected_list = Listbox(root, width=50, height=10)
-selected_list.pack(side=tk.RIGHT)
+buttons_frame.pack(side=tk.TOP, anchor='w', padx=10, pady=1)
 
 # 리스트박스1에서 항목을 선택하면 리스트박스2로 옮기는 함수
 def move_to_selected():
@@ -216,6 +208,25 @@ def remove_from_selected():
     selected_indices = selected_list.curselection()
     for index in selected_indices:
         selected_list.delete(index)
+
+add_button = tk.Button(buttons_frame, text="Add to Selected", command=move_to_selected)
+add_button.pack(side=tk.LEFT,anchor='ne')
+remove_button = tk.Button(buttons_frame, text="Remove from Selected", command=remove_from_selected)
+remove_button.pack(side=tk.LEFT,anchor='ne')
+
+
+# overlap listbox
+# 리스트박스2: 선택된 항목들을 표시하는 리스트박스
+selected_list = Listbox(root, width=50, height=10)
+selected_list.pack(side=tk.LEFT, anchor='ne', padx=5, pady=10)
+
+# 버튼들을 담을 Frame 생성
+button_frame = tk.Frame(root)
+button_frame.pack(side=tk.TOP, anchor='ne', padx=10, pady=10)
+
+# 그래프를 출력할 프레임
+graph_frame = tk.Frame(button_frame)
+graph_frame.pack(side=tk.TOP,anchor='ne',padx=1)
 
 
 def update_graph():
@@ -252,7 +263,6 @@ def update_graph():
     else:
         print("Empty selected DataFrame.")
 
-
 # 그래프를 그리는 함수
 def plot_graph(df, title, *args):
     # 그래프 그리기
@@ -267,32 +277,14 @@ def plot_graph(df, title, *args):
     plt.xscale('log')  # x축을 로그 스케일로 설정
 
     # 그래프를 tkinter 창에 출력
-    if hasattr(root, 'canvas'):
-        root.canvas.get_tk_widget().pack_forget()  # 기존 그래프 제거
-    root.canvas = FigureCanvasTkAgg(plt.gcf(), master=root)
-    root.canvas.draw()
-    root.canvas.get_tk_widget().pack()
-
-# 그래프를 출력할 프레임
-graph_frame = tk.Frame(root)
-graph_frame.pack(side=tk.LEFT)
-
-
+    if hasattr(graph_frame, 'canvas'):
+        graph_frame.canvas.get_tk_widget().pack_forget()  # 기존 그래프 제거
+    graph_frame.canvas = FigureCanvasTkAgg(plt.gcf(), master=graph_frame)
+    graph_frame.canvas.draw()
+    graph_frame.canvas.get_tk_widget().pack()
 
 # 리스트박스가 변경되었을 때 show_table_contents 함수를 호출하도록 바인딩
 list_file.bind('<<ListboxSelect>>', show_table_contents)
-
-
-
-# 버튼 생성
-button_frame = tk.Frame(root)
-button_frame.pack()
-add_button = tk.Button(button_frame, text="Add to Selected", command=move_to_selected)
-add_button.pack(side=tk.TOP)
-remove_button = tk.Button(button_frame, text="Remove from Selected", command=remove_from_selected)
-remove_button.pack(side=tk.TOP)
-
-
 
 # 프로그램 종료 시 삭제한 테이블 이름을 파일에 저장
 def on_closing():
