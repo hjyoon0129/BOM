@@ -168,6 +168,7 @@ search_entry.pack(side=tk.LEFT, padx=10, pady=20)
 search_button = tk.Button(search_frame, text="Search", command=search_table)
 search_button.pack(side=tk.LEFT, pady=15)
 
+
 # 버튼들을 담을 Frame 생성
 buttons_frame = tk.Frame(root)
 buttons_frame.pack(side=tk.TOP,anchor="w", padx=10, pady=10)
@@ -184,18 +185,10 @@ save_button.pack(side=tk.LEFT,anchor="ne")
 delete_button = Button(buttons_frame, text="Delete Selected Table", command=delete_selected_table)
 delete_button.pack(side=tk.LEFT,anchor="ne")
 
-# 버튼들을 담을 Frame 생성
-button_frame1 = tk.Frame(root)
-button_frame1.pack(side=tk.RIGHT, anchor='w', padx=5)
-
-# 그래프를 출력할 프레임
-graph_frame = tk.Frame(button_frame1)
-graph_frame.pack(side=tk.RIGHT)
-
 
 #메인 리스트 박스
 # 리스트박스에 데이터베이스에 저장된 테이블 이름 추가
-list_file = tk.Listbox(root, width=50, height=10)
+list_file = tk.Listbox(root, width=55, height=10)
 list_file.pack(side=tk.TOP, anchor="w")
 
 cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
@@ -204,6 +197,13 @@ table_names = [name[0] for name in table_names]
 for table_name in table_names:
     list_file.insert(END, table_name)
 
+# # 버튼들을 담을 Frame 생성
+# button_frame1 = tk.Frame(root)
+# button_frame1.pack(side=tk.TOP, anchor='w', padx=5)
+
+# 그래프를 출력할 프레임
+graph_frame = tk.Frame(root)
+graph_frame.pack(side=tk.TOP)
 
 # 리스트박스1에서 항목을 선택하면 리스트박스2로 옮기는 함수
 def move_to_selected():
@@ -229,7 +229,7 @@ remove_button.pack(side=tk.LEFT)
 
 # overlap listbox
 # 리스트박스2: 선택된 항목들을 표시하는 리스트박스
-selected_list = Listbox(root, width=50, height=10)
+selected_list = Listbox(root, width=55, height=10)
 selected_list.pack(side=tk.TOP,anchor="w")
 
 def overlap_graphs():
@@ -269,6 +269,17 @@ def overlap_graphs():
 # 겹치기 버튼 생성
 overlap_button = tk.Button(button_frame, text="Overlap Graphs", command=overlap_graphs)
 overlap_button.pack(side=tk.LEFT)
+
+# 오버랩 그래프 리셋 버튼을 누를 때 실행되는 함수
+def reset_overlapping_graphs():
+    plt.clf()  # 그래프 초기화
+
+    if hasattr(graph_frame, 'canvas'):
+        graph_frame.canvas.get_tk_widget().pack_forget()  # 기존 그래프 제거
+
+# 오버랩 그래프 리셋 버튼 생성
+reset_overlap_button = tk.Button(button_frame, text="Reset", command=reset_overlapping_graphs)
+reset_overlap_button.pack(side=tk.LEFT)
 
 # 그래프를 그리는 함수
 def plot_graph(df, title, *args):

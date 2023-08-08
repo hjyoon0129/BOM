@@ -186,7 +186,7 @@ delete_button.pack(side=tk.LEFT,anchor="ne")
 
 # 버튼들을 담을 Frame 생성
 button_frame1 = tk.Frame(root)
-button_frame1.pack(side=tk.RIGHT, anchor='w', padx=5)
+button_frame1.pack(side=tk.RIGHT, anchor='w', padx=10, pady=10)
 
 # 그래프를 출력할 프레임
 graph_frame = tk.Frame(button_frame1)
