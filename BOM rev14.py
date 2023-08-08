@@ -173,6 +173,14 @@ search_button.pack(side=tk.LEFT, pady=15)
 buttons_frame = tk.Frame(root)
 buttons_frame.pack(side=tk.TOP,anchor="w", padx=10, pady=10)
 
+# 버튼들을 담을 Frame 생성
+button_frame1 = tk.Frame(root)
+button_frame1.pack(side=tk.RIGHT, anchor='ne', padx=5)
+
+# 그래프를 출력할 프레임
+graph_frame = tk.Frame(button_frame1)
+graph_frame.pack(side=tk.TOP)
+
 # CSV 파일 선택 버튼
 csv_button = Button(buttons_frame, text="Select CSV File", command=select_csv_files)
 csv_button.pack(side=tk.LEFT,anchor="ne")
@@ -197,13 +205,6 @@ table_names = [name[0] for name in table_names]
 for table_name in table_names:
     list_file.insert(END, table_name)
 
-# # 버튼들을 담을 Frame 생성
-# button_frame1 = tk.Frame(root)
-# button_frame1.pack(side=tk.TOP, anchor='w', padx=5)
-
-# 그래프를 출력할 프레임
-graph_frame = tk.Frame(root)
-graph_frame.pack(side=tk.TOP)
 
 # 리스트박스1에서 항목을 선택하면 리스트박스2로 옮기는 함수
 def move_to_selected():
