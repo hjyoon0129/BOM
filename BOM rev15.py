@@ -7,11 +7,6 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib.pyplot as plt
 import tkinter as tk
 
-def close_event():
-    if messagebox.askokcancel("Quit", "Do you want to quit?"):
-        plt.close()  # 메타플롯립 창을 닫음
-        root.destroy()  # Tkinter 창 종료
-
 # tkinter 창 생성
 root = Tk()
 root.title("CSV Table Viewer")
@@ -258,6 +253,7 @@ def overlap_graphs():
     plt.grid(True)
     plt.legend()
     plt.xscale('log')
+
     if hasattr(graph_frame, 'canvas'):
         graph_frame.canvas.get_tk_widget().pack_forget()
 
@@ -282,8 +278,14 @@ def reset_overlapping_graphs():
 reset_overlap_button = tk.Button(button_frame, text="Reset", command=reset_overlapping_graphs)
 reset_overlap_button.pack(side=tk.LEFT)
 
+def close_event():
+    if root.winfo_exists() and messagebox.askokcancel("Quit", "Do you want to quit?"):
+        root.destroy()
+
 # 그래프를 그리는 함수
 def plot_graph(df, title, *args):
+    # 그래프 그리기
+    plt.clf()
     plt.figure(figsize=(8, 6))
     for col in df.columns[1:]:
         plt.semilogx(df['Frequency'], df[col], *args, label=col)
@@ -293,41 +295,27 @@ def plot_graph(df, title, *args):
     plt.grid(True)
     plt.legend()
     plt.xscale('log')  # x축을 로그 스케일로 설정
-
-    # 기존 그래프 캔버스와 버튼 삭제
-    if hasattr(graph_frame, 'canvas'):
-        graph_frame.canvas.get_tk_widget().destroy()
-        delattr(graph_frame, 'canvas')
-    if hasattr(graph_frame, 'close_button'):
-        graph_frame.close_button.destroy()
-        delattr(graph_frame, 'close_button')
-
     # 그래프를 tkinter 창에 출력
-    if hasattr(graph_frame, 'canvas'):
-        graph_frame.canvas.get_tk_widget().pack_forget()  # 기존 그래프 제거
-    graph_frame.canvas = FigureCanvasTkAgg(plt.gcf(), master=graph_frame)
-    graph_frame.canvas.draw()
-    graph_frame.canvas.get_tk_widget().pack()
+    canvas.draw()
 
-    # 종료 버튼 추가
-    graph_frame.close_button = Button(graph_frame, text="Close Graph", command=close_graph)
-    graph_frame.close_button.pack()
+def close_event():
+    if messagebox.askokcancel("Quit", "Do you want to quit?"):
+        root.destroy()
 
-def close_graph():
-    if hasattr(graph_frame, 'canvas'):
-        graph_frame.canvas.get_tk_widget().destroy()
-        delattr(graph_frame, 'canvas')
-    if hasattr(graph_frame, 'close_button'):
-        graph_frame.close_button.destroy()
-        delattr(graph_frame, 'close_button')
+# 그래프 창 초기화
+figure = plt.figure(figsize=(8, 6))
+canvas = FigureCanvasTkAgg(figure, master=root)
+canvas.get_tk_widget().pack()
+
+def close_event():
+    if messagebox.askokcancel("Quit", "Do you want to quit?"):
+        root.destroy()
 
 # 리스트박스가 변경되었을 때 show_table_contents 함수를 호출하도록 바인딩
 list_file.bind('<<ListboxSelect>>', show_table_contents)
 
-def close_graph():
-    plt.close()  # 그래프 창 닫기
-
-# tkinter 창이 닫힐 때 on_closing 함수 호출
+# 그래프 창 닫을 때 처리
+canvas.mpl_connect("close_event", close_event)
 root.protocol("WM_DELETE_WINDOW", close_event)
 
 root.mainloop()
