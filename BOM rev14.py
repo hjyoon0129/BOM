@@ -6,6 +6,13 @@ import re
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib.pyplot as plt
 import tkinter as tk
+from matplotlib.font_manager import FontProperties
+
+# 폰트 경로를 설정합니다.
+font_path = r"C:\Users\SAMSUNG\AppData\Local\Microsoft\Windows\Fonts\현대하모니 M.ttf"
+
+# Matplotlib의 폰트 매니저에 폰트 경로를 추가합니다.
+plt.rcParams['font.family'] = FontProperties(fname=font_path).get_name()
 
 def close_event():
     if messagebox.askokcancel("Quit", "Do you want to quit?"):
@@ -271,16 +278,6 @@ def overlap_graphs():
 overlap_button = tk.Button(button_frame, text="Overlap Graphs", command=overlap_graphs)
 overlap_button.pack(side=tk.LEFT)
 
-# 오버랩 그래프 리셋 버튼을 누를 때 실행되는 함수
-def reset_overlapping_graphs():
-    plt.clf()  # 그래프 초기화
-
-    if hasattr(graph_frame, 'canvas'):
-        graph_frame.canvas.get_tk_widget().pack_forget()  # 기존 그래프 제거
-
-# 오버랩 그래프 리셋 버튼 생성
-reset_overlap_button = tk.Button(button_frame, text="Reset", command=reset_overlapping_graphs)
-reset_overlap_button.pack(side=tk.LEFT)
 
 # 그래프를 그리는 함수
 def plot_graph(df, title, *args):
@@ -312,6 +309,18 @@ def plot_graph(df, title, *args):
     # 종료 버튼 추가
     graph_frame.close_button = Button(graph_frame, text="Close Graph", command=close_graph)
     graph_frame.close_button.pack()
+
+# 오버랩 그래프 리셋 버튼을 누를 때 실행되는 함수
+def reset_overlapping_graphs():
+    plt.clf()  # 그래프 초기화
+
+    if hasattr(graph_frame, 'canvas'):
+        graph_frame.canvas.get_tk_widget().pack_forget()  # 기존 그래프 제거
+
+# 오버랩 그래프 리셋 버튼 생성
+reset_overlap_button = tk.Button(button_frame, text="Reset", command=reset_overlapping_graphs)
+reset_overlap_button.pack(side=tk.LEFT)
+
 
 def close_graph():
     if hasattr(graph_frame, 'canvas'):

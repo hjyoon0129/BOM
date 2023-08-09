@@ -281,23 +281,44 @@ overlap_button.pack(side=tk.LEFT)
 
 # 그래프를 그리는 함수
 def plot_graph(df, title, *args):
-    plt.figure(figsize=(8, 6))
-    for col in df.columns[1:]:
-        plt.semilogx(df['Frequency'], df[col], *args, label=col)
+    global ax_hline, ax_vline, text_handles, legend_names, graph_type  # 전역 변수로 선언
+
+    # 그래프 타입을 전역 변수로 가져옴
+    graph_type = 'Line'
+
+    fig, ax = plt.subplots(figsize=(8, 6))  # fig 객체도 생성해야 함
+
+    legend_names = []
+    colors = ['k', 'r', 'b', 'g', 'm', 'y', 'k']  # 색상 리스트 생성
+    i = 0  # 색상 인덱스
+
+    if graph_type == 'Line':
+        for col in df.columns[1:]:
+            color = colors[i]
+            if "_SPL0" in col:
+                ax.plot(df['Frequency'], df[col], *args, label=col, color=color)
+                legend_names.append(col)
+                i = (i + 1) % len(colors)
+            elif "_Imp" in col:
+                # _SPL0와 동일한 칼라를 사용
+                for l in legend_names:
+                    if "_SPL0" in l and l.split("_SPL0")[0] == col.split("_Imp")[0]:
+                        color = ax.lines[legend_names.index(l)].get_color()
+                        break
+                ax.plot(df['Frequency'], df[col], *args, label=col, color=color)
+                legend_names.append(col)
+                i = (i + 1) % len(colors)
+            else:
+                ax.plot(df['Frequency'], df[col], *args, label=col, color=color)
+                legend_names.append(col)
+                i = (i + 1) % len(colors)
+
     plt.xlabel("Frequency")
     plt.ylabel("Value")
     plt.title(title)
     plt.grid(True)
     plt.legend()
     plt.xscale('log')  # x축을 로그 스케일로 설정
-
-    # 기존 그래프 캔버스와 버튼 삭제
-    if hasattr(graph_frame, 'canvas'):
-        graph_frame.canvas.get_tk_widget().destroy()
-        delattr(graph_frame, 'canvas')
-    if hasattr(graph_frame, 'close_button'):
-        graph_frame.close_button.destroy()
-        delattr(graph_frame, 'close_button')
 
     # 그래프를 tkinter 창에 출력
     if hasattr(graph_frame, 'canvas'):
@@ -306,10 +327,48 @@ def plot_graph(df, title, *args):
     graph_frame.canvas.draw()
     graph_frame.canvas.get_tk_widget().pack()
 
-    # 종료 버튼 추가
-    graph_frame.close_button = Button(graph_frame, text="Close Graph", command=close_graph)
-    graph_frame.close_button.pack()
-# 오버랩 그래프 리셋 버튼을 누를 때 실행되는 함수
+    # 범례의 imp가 나타나도록 수정
+    handles, labels = ax.get_legend_handles_labels()
+    new_handles = []
+    new_labels = []
+    ax.legend(handles=new_handles + ax.get_lines(), labels=new_labels + legend_names, loc='best')
+    # ax_hline 초기화 (요게 없으면 아래 on_move 인식 못함)
+    ax_hline = ax.axhline(y=0, color='k', linewidth=1, linestyle='--')
+    ax_vline = ax.axvline(x=0, color='k', linewidth=1, linestyle='--')
+
+    # 마우스 이동 시 호출되는 함수를 정의합니다.
+    def on_move(event):
+        global ax_hline, ax_vline, text_handles, legend_names  # 전역 변수로 선언
+        if event.inaxes:
+            x, y = event.xdata, event.ydata
+            # 수평선 위치 업데이트
+            ax_hline.set_ydata(y)
+            ax_vline.set_xdata(x)  # 수직선 위치 업데이트
+            for handle in text_handles:
+                handle.remove()
+            text_handles = []  # 텍스트 핸들 초기화
+
+            if graph_type == 'Line':
+                for col in y_cols:
+                    # 해당 열에서의 x, y 좌표 인덱스 계산
+                    idx = np.abs(data[x_col] - x).argmin()
+                    x_pos, y_pos = data[x_col][idx], data[col][idx]
+                    # 텍스트 위치 계산
+                    x_pos_text = '{:.6g}'.format(x_pos)
+                    y_pos_text = '{:.6g}'.format(y_pos)
+                    # 텍스트 그리기
+                    text = f'{col}: ({x_pos_text}, {y_pos_text})'
+                    handle = plt.text(0.01, 0.95 - (0.05 * (y_cols.index(col))), text, fontsize=10,
+                                      transform=fig.transFigure, ha='left')
+                    text_handles.append(handle)
+
+    fig.canvas.mpl_connect('motion_notify_event', on_move)
+
+    # 그래프 오른쪽으로 15% 이동하기 (여백조절하기)
+    fig.subplots_adjust(left=0.2, right=0.98)
+
+    text_handles = []  # 전역 변수로 선언
+
 def reset_overlapping_graphs():
     plt.clf()  # 그래프 초기화
 
