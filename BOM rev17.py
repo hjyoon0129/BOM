@@ -243,42 +243,6 @@ remove_button.pack(side=tk.LEFT)
 selected_list = Listbox(root, width=55, height=10)
 selected_list.pack(side=tk.TOP,anchor="w")
 
-def overlap_graphs():
-    selected_columns = selected_list.get(0, tk.END)
-    if len(selected_columns) == 0:
-        return
-
-    connection = sqlite3.connect(db_file)
-    plt.clf()  # 기존 그래프 초기화
-
-    for col in selected_columns:
-        cursor.execute(f"SELECT * FROM {col}")
-        df = pd.DataFrame(cursor.fetchall(), columns=[col[0] for col in cursor.description])
-
-        if 'Frequency' not in df.columns:
-            connection.close()
-            return
-
-        plt.semilogx(df['Frequency'], df.iloc[:, 1:], label=col)
-
-    plt.xlabel("Frequency")
-    plt.ylabel("Value")
-    plt.title("Overlapping Graphs")
-    plt.grid(True)
-    plt.legend()
-    plt.xscale('log')
-    if hasattr(graph_frame, 'canvas'):
-        graph_frame.canvas.get_tk_widget().pack_forget()
-
-    graph_frame.canvas = FigureCanvasTkAgg(plt.gcf(), master=graph_frame)
-    graph_frame.canvas.draw()
-    graph_frame.canvas.get_tk_widget().pack()
-
-    connection.close()
-
-# 겹치기 버튼 생성
-overlap_button = tk.Button(button_frame, text="Overlap Graphs", command=overlap_graphs)
-overlap_button.pack(side=tk.LEFT)
 
 def on_table_select(event):
     selected_table = list_file.get(list_file.curselection())
@@ -294,6 +258,101 @@ def on_table_select(event):
     for col_name in column_names[1:]:
         y_col_listbox.insert(tk.END, col_name)
 list_file.bind("<<ListboxSelect>>", on_table_select)
+
+
+def overlap_graphs():
+    global global_df, text_handles, ax_hline, ax_vline  # 전역 변수로 선언
+    global_df = None  # global_df 변수 초기화
+
+    selected_columns = selected_list.get(0, tk.END)
+    if len(selected_columns) == 0:
+        return
+
+    connection = sqlite3.connect(db_file)
+    cursor = connection.cursor()  # cursor 정의
+
+    plt.clf()  # 기존 그래프 초기화
+
+    legend_names = []  # 범례 이름들을 저장할 리스트
+    colors = ['k', 'r', 'b', 'g', 'm', 'y', 'k']  # 색상 리스트 생성
+    i = 0  # 색상 인덱스
+
+    for col in selected_columns:
+        cursor.execute(f"SELECT * FROM {col}")
+        df = pd.DataFrame(cursor.fetchall(), columns=[col[0] for col in cursor.description])
+
+        if 'Frequency' not in df.columns:
+            connection.close()
+            return
+
+        color = colors[i]
+        plt.semilogx(df['Frequency'], df.iloc[:, 1:], label=col, color=color)
+        legend_names.append(col)
+        i = (i + 1) % len(colors)
+
+        if global_df is None:
+            global_df = df  # 처음에 global_df에 데이터를 할당
+
+    plt.xlabel("Frequency")
+    plt.ylabel("Value")
+    plt.title("Overlapping Graphs")
+    plt.grid(True)
+    plt.legend()
+    plt.xscale('log')
+
+    # 그래프를 tkinter 창에 출력
+    if hasattr(graph_frame, 'canvas'):
+        graph_frame.canvas.get_tk_widget().pack_forget()  # 기존 그래프 제거
+
+    graph_frame.canvas = FigureCanvasTkAgg(plt.gcf(), master=graph_frame)
+    graph_frame.canvas.draw()
+    graph_frame.canvas.get_tk_widget().pack()
+
+    handles, labels = plt.gca().get_legend_handles_labels()  # 현재 Axes의 legend 정보를 가져옴
+    plt.gca().legend(handles=handles, labels=labels, loc='best')  # 범례 위치를 조정
+
+    ax_hline = plt.gca().axhline(y=0, color='k', linewidth=1, linestyle='--')
+    ax_vline = plt.gca().axvline(x=0, color='k', linewidth=1, linestyle='--')
+
+    fig.canvas.mpl_connect('motion_notify_event', on_move)
+
+    connection.close()
+
+    text_handles = []  # 전역 변수로 선언
+
+def on_move(event):
+    global text_handles, legend_names
+    if event.inaxes:
+        x, y = event.xdata, event.ydata
+        ax_hline.set_ydata(y)
+        ax_vline.set_xdata(x)
+        for handle in text_handles:
+            handle.remove()
+        text_handles = []
+        if graph_type == 'Line':
+            for col in global_df.columns[1:]:
+                if "_SPL0" in col or "_Imp" in col:
+                    idx = np.abs(global_df['Frequency'] - x).argmin()
+                    x_pos, y_pos = global_df['Frequency'][idx], global_df[col][idx]
+                    x_pos_text = '{:.6g}'.format(x_pos)
+                    y_pos_text = '{:.6g}'.format(y_pos)
+                    text = f'{col}: ({x_pos_text}, {y_pos_text})'
+                    if "_SPL0" in col:  # Only add text for _SPL0 and _Imp columns
+                        handle = plt.text(0.01, 0.95 - (0.05 * (legend_names.index(col))), text, fontsize=10,
+                                          transform=fig.transFigure, ha='left')
+                        text_handles.append(handle)
+                    if "_Imp" in col:
+                        handle = plt.text(0.01, 0.95 - (0.05 * (legend_names.index(col))), text, fontsize=10,
+                                          transform=fig.transFigure, ha='left')
+                        text_handles.append(handle)
+        fig.canvas.draw_idle()
+
+
+
+# 겹치기 버튼 생성
+overlap_button = tk.Button(button_frame, text="Overlap Graphs", command=overlap_graphs)
+overlap_button.pack(side=tk.LEFT)
+
 
 
 # 그래프를 그리는 함수
@@ -387,8 +446,8 @@ def plot_graph(df, title, *args):
 
     fig.canvas.mpl_connect('motion_notify_event', on_move)
 
-    # Cursor를 생성합니다.
-    cursor = Cursor(plt.gca(), horizOn=True, vertOn=True, color='red', linewidth=1)
+    # # Cursor를 생성합니다.
+    # cursor = Cursor(plt.gca(), horizOn=True, vertOn=True, color='red', linewidth=1)
 
 def reset_overlapping_graphs():
     plt.clf()  # 그래프 초기화
