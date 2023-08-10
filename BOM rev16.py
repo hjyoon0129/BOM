@@ -7,6 +7,8 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib.pyplot as plt
 import tkinter as tk
 from matplotlib.font_manager import FontProperties
+import numpy as np
+
 
 # 폰트 경로를 설정합니다.
 font_path = r"C:\Users\SAMSUNG\AppData\Local\Microsoft\Windows\Fonts\현대하모니 M.ttf"
@@ -278,6 +280,21 @@ def overlap_graphs():
 overlap_button = tk.Button(button_frame, text="Overlap Graphs", command=overlap_graphs)
 overlap_button.pack(side=tk.LEFT)
 
+def on_table_select(event):
+    selected_table = list_file.get(list_file.curselection())
+
+    cursor.execute(f"PRAGMA table_info({selected_table})")
+    columns_info = cursor.fetchall()
+    column_names = [info[1] for info in columns_info]
+
+    x_col_var.set(column_names[0])
+    x_col_label.config(text="X Column: " + x_col_var.get())
+
+    y_col_listbox.delete(0, tk.END)
+    for col_name in column_names[1:]:
+        y_col_listbox.insert(tk.END, col_name)
+list_file.bind("<<ListboxSelect>>", on_table_select)
+
 
 # 그래프를 그리는 함수
 def plot_graph(df, title, *args):
@@ -309,7 +326,7 @@ def plot_graph(df, title, *args):
                 legend_names.append(col)
                 i = (i + 1) % len(colors)
             else:
-                ax.plot(df['Frequency'], df[col], *args, label=col, color=color)
+                ax.plot(df[x_col], df[col], *args, label=col, color=color)  # x_col 사용
                 legend_names.append(col)
                 i = (i + 1) % len(colors)
 
@@ -336,38 +353,39 @@ def plot_graph(df, title, *args):
     ax_hline = ax.axhline(y=0, color='k', linewidth=1, linestyle='--')
     ax_vline = ax.axvline(x=0, color='k', linewidth=1, linestyle='--')
 
-    # 마우스 이동 시 호출되는 함수를 정의합니다.
-    def on_move(event):
-        global ax_hline, ax_vline, text_handles, legend_names  # 전역 변수로 선언
-        if event.inaxes:
-            x, y = event.xdata, event.ydata
-            # 수평선 위치 업데이트
-            ax_hline.set_ydata(y)
-            ax_vline.set_xdata(x)  # 수직선 위치 업데이트
-            for handle in text_handles:
-                handle.remove()
-            text_handles = []  # 텍스트 핸들 초기화
-
-            if graph_type == 'Line':
-                for col in y_cols:
-                    # 해당 열에서의 x, y 좌표 인덱스 계산
-                    idx = np.abs(data[x_col] - x).argmin()
-                    x_pos, y_pos = data[x_col][idx], data[col][idx]
-                    # 텍스트 위치 계산
-                    x_pos_text = '{:.6g}'.format(x_pos)
-                    y_pos_text = '{:.6g}'.format(y_pos)
-                    # 텍스트 그리기
-                    text = f'{col}: ({x_pos_text}, {y_pos_text})'
-                    handle = plt.text(0.01, 0.95 - (0.05 * (y_cols.index(col))), text, fontsize=10,
-                                      transform=fig.transFigure, ha='left')
-                    text_handles.append(handle)
-
-    fig.canvas.mpl_connect('motion_notify_event', on_move)
-
     # 그래프 오른쪽으로 15% 이동하기 (여백조절하기)
     fig.subplots_adjust(left=0.2, right=0.98)
 
     text_handles = []  # 전역 변수로 선언
+
+    def on_move(event):
+        global ax_hline, ax_vline, text_handles, legend_names
+        if event.inaxes:
+            x, y = event.xdata, event.ydata
+            ax_hline.set_ydata(y)
+            ax_vline.set_xdata(x)
+            for handle in text_handles:
+                handle.remove()
+            text_handles = []
+            if graph_type == 'Line':
+                for col in df.columns[1:]:
+                    if "_SPL0" in col:
+                        idx = np.abs(df['Frequency'] - x).argmin()
+                        x_pos, y_pos = df['Frequency'][idx], df[col][idx]
+                        x_pos_text = '{:.6g}'.format(x_pos)
+                        y_pos_text = '{:.6g}'.format(y_pos)
+                        text = f'{col}: ({x_pos_text}, {y_pos_text})'
+                        handle = plt.text(0.01, 0.95 - (0.05 * (legend_names.index(col))), text, fontsize=10,
+                                          transform=fig.transFigure, ha='left')
+                        text_handles.append(handle)
+            fig.canvas.draw_idle()
+
+    fig.canvas.mpl_connect('motion_notify_event', on_move)
+
+    # Cursor를 생성합니다.
+    cursor = Cursor(plt.gca(), horizOn=True, vertOn=True, color='red', linewidth=1)
+
+
 
 def reset_overlapping_graphs():
     plt.clf()  # 그래프 초기화
