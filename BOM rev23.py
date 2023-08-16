@@ -21,8 +21,8 @@ def close_event():
 # tkinter 창 생성
 root = Tk()
 root.title("CSV Table Viewer")
-root.geometry("1500x700")
-# root.state('zoomed')
+# root.geometry("1500x700")
+root.state('zoomed')
 root.protocol("WM_DELETE_WINDOW", close_event)  # 창이 닫힐 때 close_event 호출
 
 # 데이터폴더 경로
@@ -465,7 +465,7 @@ def overlap_graphs_on_move(event, global_df, fig):
                     y_positions.append(y_display)
 
                     # bbox 스타일 설정하여 배경색을 흰색으로 설정
-                    text_handle = ax.text(0.005, y_display, text, fontsize=10, ha='left', va='top', bbox=dict(facecolor='white', edgecolor='none', alpha=1.0)) #alpha : text box 투명도, face color: textbox 배경색
+                    text_handle = ax.text(0.5, y_display, text, fontsize=10, ha='left', va='top', bbox=dict(facecolor='white', edgecolor='none', alpha=1.0)) #alpha : text box 투명도, face color: textbox 배경색
                     text_handles.append(text_handle)
 
             handles, labels = ax.get_legend_handles_labels()
