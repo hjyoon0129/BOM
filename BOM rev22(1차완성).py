@@ -9,12 +9,8 @@ import tkinter as tk
 from matplotlib.font_manager import FontProperties
 import numpy as np
 
-
-# 폰트 경로를 설정합니다.
-font_path = r"C:\Users\SAMSUNG\AppData\Local\Microsoft\Windows\Fonts\현대하모니 M.ttf"
-
-# Matplotlib의 폰트 매니저에 폰트 경로를 추가합니다.
-plt.rcParams['font.family'] = FontProperties(fname=font_path).get_name()
+# Matplotlib의 폰트 매니저에 기본 폰트를 지정합니다.
+plt.rcParams['font.family'] = 'Arial'
 
 def close_event():
     if messagebox.askokcancel("Quit", "Do you want to quit?"):
