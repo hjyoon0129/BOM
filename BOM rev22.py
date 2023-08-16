@@ -24,7 +24,7 @@ def close_event():
 # tkinter 창 생성
 root = Tk()
 root.title("CSV Table Viewer")
-root.geometry("1200x800")
+root.geometry("1500x700")
 
 # 데이터폴더 경로
 data_folder = "data"
@@ -266,7 +266,7 @@ def plot_graph(df, title, *args):
     # 그래프 타입을 전역 변수로 가져옴
     graph_type = 'Line'
 
-    fig, ax = plt.subplots(figsize=(8, 6))  # fig 객체도 생성해야 함
+    fig, ax = plt.subplots(figsize=(11, 10))  # fig 객체도 생성해야 함
 
     legend_names = []
     colors = ['k', 'r', 'b', 'g', 'm', 'y', 'k']  # 색상 리스트 생성
@@ -317,7 +317,7 @@ def plot_graph(df, title, *args):
     ax_vline = ax.axvline(x=0, color='k', linewidth=1, linestyle='--')
 
     # 그래프 오른쪽으로 15% 이동하기 (여백조절하기)
-    fig.subplots_adjust(left=0.2, right=0.98)
+    fig.subplots_adjust(left=0.5, right=0.95)
     fig.canvas.mpl_connect('motion_notify_event', lambda event: plot_graph_on_move(event, df, fig))
     text_handles = []  # 전역 변수로 선언
 
@@ -349,7 +349,7 @@ def plot_graph_on_move(event, df, fig):
         fig.canvas.draw_idle()
 
 def overlap_graphs():
-    global global_df, text_handles, ax_hline, ax_vline  # 전역 변수로 선언
+    global global_df, text_handles, ax_hline, ax_vline, colors  # 전역 변수로 선언
     global_df = None  # global_df 변수 초기화
 
     selected_columns = selected_list.get(0, tk.END)
@@ -423,7 +423,7 @@ def overlap_graphs():
 
 # overlap_graphs 함수 내에서의 on_move 함수 정의
 def overlap_graphs_on_move(event, global_df, fig):
-    global text_handles, legend_names
+    global text_handles, legend_names, colors
     if event.inaxes:
         x, y = event.xdata, event.ydata
         ax_hline.set_ydata([y] * len(ax_hline.get_xdata()))
@@ -445,20 +445,34 @@ def overlap_graphs_on_move(event, global_df, fig):
                     text = f'{col}: ({x_pos_text}, {y_pos_text})'
 
                     x_display, y_display = ax.transData.transform((x_pos, y_pos))
-                    x_display = max(x_display, ax.transData.transform((0, 0))[0] + 10)
-                    y_display = min(y_display, ax.transData.transform((0, ax.get_ylim()[0]))[1] + 10)
+                    # 텍스트가 그래프 영역을 벗어나지 않도록 좌표 제어
+                    x_display = max(x_display, ax.transData.transform((0, 0))[0] + 10)  # x 좌표
+                    y_display = min(y_display, ax.transData.transform((0, ax.get_ylim()[0]))[1] - 10)  # y 좌표
+
 
                     while y_display in y_positions:
-                        y_display += -10
+                        y_display += -5
 
                     y_positions.append(y_display)
 
-                    text_handle = ax.text(x_display, y_display, text, fontsize=10, ha='left', va='top')
-
+                    # bbox 스타일 설정하여 배경색을 흰색으로 설정
+                    text_handle = ax.text(0.005, y_display, text, fontsize=10, ha='left', va='top', bbox=dict(facecolor='white', edgecolor='none', alpha=1.0)) #alpha : text box 투명도, face color: textbox 배경색
                     text_handles.append(text_handle)
 
             handles, labels = ax.get_legend_handles_labels()
             legend = ax.legend(handles=handles, labels=labels, loc='lower right')
+
+        text_colors = []
+        color_idx = 0
+
+        for col in global_df.columns[1:]:
+            if "_SPL0" in col or "_Imp" in col:
+                text_colors.append(colors[color_idx])
+                if "_Imp" in col:
+                    color_idx = (color_idx + 1) % len(colors)
+
+        for text_handle, color in zip(text_handles, text_colors):
+            text_handle.set_color(color)  # 텍스트 핸들의 색상 설정
 
         fig.canvas.draw_idle()
 
