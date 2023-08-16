@@ -262,6 +262,7 @@ list_file.bind("<<ListboxSelect>>", on_table_select)
 
 
 # 그래프를 그리는 함수
+# 그래프를 그리는 함수
 def plot_graph(df, title, *args):
     global ax_hline, ax_vline, text_handles, legend_names, graph_type  # 전역 변수로 선언
 
@@ -291,7 +292,7 @@ def plot_graph(df, title, *args):
                 legend_names.append(col)
                 i = (i + 1) % len(colors)
             else:
-                ax.plot(df[x_col], df[col], *args, label=col, color=color)  # x_col 사용
+                ax.plot(df['Frequency'], df[col], *args, label=col, color=color)  # x_col 사용
                 legend_names.append(col)
                 i = (i + 1) % len(colors)
 
@@ -320,40 +321,35 @@ def plot_graph(df, title, *args):
 
     # 그래프 오른쪽으로 15% 이동하기 (여백조절하기)
     fig.subplots_adjust(left=0.2, right=0.98)
-
+    fig.canvas.mpl_connect('motion_notify_event', lambda event: plot_graph_on_move(event, df, fig))
     text_handles = []  # 전역 변수로 선언
 
-    def on_move(event):
-        global ax_hline, ax_vline, text_handles, legend_names
-        if event.inaxes:
-            x, y = event.xdata, event.ydata
-            ax_hline.set_ydata(y)
-            ax_vline.set_xdata(x)
-            for handle in text_handles:
-                handle.remove()
-            text_handles = []
-            if graph_type == 'Line':
-                for col in df.columns[1:]:
-                    if "_SPL0" in col or "_Imp" in col:
-                        idx = np.abs(df['Frequency'] - x).argmin()
-                        x_pos, y_pos = df['Frequency'][idx], df[col][idx]
-                        x_pos_text = '{:.6g}'.format(x_pos)
-                        y_pos_text = '{:.6g}'.format(y_pos)
-                        text = f'{col}: ({x_pos_text}, {y_pos_text})'
-                        if "_SPL0" in col:  # Only add text for _SPL0 and _Imp columns
-                            handle = plt.text(0.01, 0.95 - (0.05 * (legend_names.index(col))), text, fontsize=10,
-                                              transform=fig.transFigure, ha='left')
-                            text_handles.append(handle)
-                        if "_Imp" in col:
-                            handle = plt.text(0.01, 0.95 - (0.05 * (legend_names.index(col))), text, fontsize=10,
-                                              transform=fig.transFigure, ha='left')
-                            text_handles.append(handle)
-            fig.canvas.draw_idle()
-
-    fig.canvas.mpl_connect('motion_notify_event', on_move)
-
-    # # Cursor를 생성합니다.
-    # cursor = Cursor(plt.gca(), horizOn=True, vertOn=True, color='red', linewidth=1)
+def plot_graph_on_move(event, df, fig):
+    global ax_hline, ax_vline, text_handles, legend_names
+    if event.inaxes:
+        x, y = event.xdata, event.ydata
+        ax_hline.set_ydata(y)
+        ax_vline.set_xdata(x)
+        for handle in text_handles:
+            handle.remove()
+        text_handles = []
+        if graph_type == 'Line':
+            for col in df.columns[1:]:
+                if "_SPL0" in col or "_Imp" in col:
+                    idx = np.abs(df['Frequency'] - x).argmin()
+                    x_pos, y_pos = df['Frequency'][idx], df[col][idx]
+                    x_pos_text = '{:.6g}'.format(x_pos)
+                    y_pos_text = '{:.6g}'.format(y_pos)
+                    text = f'{col}: ({x_pos_text}, {y_pos_text})'
+                    if "_SPL0" in col:  # Only add text for _SPL0 and _Imp columns
+                        handle = plt.text(0.01, 0.95 - (0.05 * (legend_names.index(col))), text, fontsize=10,
+                                          transform=fig.transFigure, ha='left')
+                        text_handles.append(handle)
+                    if "_Imp" in col:
+                        handle = plt.text(0.01, 0.95 - (0.05 * (legend_names.index(col))), text, fontsize=10,
+                                          transform=fig.transFigure, ha='left')
+                        text_handles.append(handle)
+        fig.canvas.draw_idle()
 
 
 def overlap_graphs():
@@ -383,7 +379,11 @@ def overlap_graphs():
 
         color = colors[i]
         plt.semilogx(df['Frequency'], df.iloc[:, 1:], label=col, color=color)
-        legend_names.append(col)
+
+        # 컬럼 이름이 '_SPL0'로 끝나는 경우만 legend_names에 추가
+        if "_SPL0" in col:
+            legend_names.append(col)
+
         i = (i + 1) % len(colors)
 
         if global_df is None:
@@ -410,13 +410,15 @@ def overlap_graphs():
     ax_hline = plt.gca().axhline(y=0, color='k', linewidth=1, linestyle='--')
     ax_vline = plt.gca().axvline(x=0, color='k', linewidth=1, linestyle='--')
 
-    # global_df.canvas.mpl_connect('motion_notify_event', on_move)
+    fig = plt.gcf()  # 현재 그래프의 fig 객체를 가져옴
+    fig.canvas.mpl_connect('motion_notify_event', lambda event: overlap_graphs_on_move(event, global_df, fig))
 
     connection.close()
 
     text_handles = []  # 전역 변수로 선언
 
-def on_move(event):
+# overlap_graphs 함수 내에서의 on_move 함수 정의
+def overlap_graphs_on_move(event, global_df, fig):
     global text_handles, legend_names
     if event.inaxes:
         x, y = event.xdata, event.ydata
@@ -426,22 +428,30 @@ def on_move(event):
             handle.remove()
         text_handles = []
         if graph_type == 'Line':
+            ax = plt.gca()
+            idx = np.abs(global_df['Frequency'] - x).argmin()
+            x_pos = global_df['Frequency'][idx]
+            x_pos_text = '{:.6g}'.format(x_pos)
+
             for col in global_df.columns[1:]:
                 if "_SPL0" in col or "_Imp" in col:
-                    idx = np.abs(global_df['Frequency'] - x).argmin()
-                    x_pos, y_pos = global_df['Frequency'][idx], global_df[col][idx]
-                    x_pos_text = '{:.6g}'.format(x_pos)
+                    y_pos = global_df[col][idx]
                     y_pos_text = '{:.6g}'.format(y_pos)
                     text = f'{col}: ({x_pos_text}, {y_pos_text})'
-                    if "_SPL0" in col:  # Only add text for _SPL0 and _Imp columns
-                        handle = plt.text(0.01, 0.95 - (0.05 * (legend_names.index(col))), text, fontsize=10,
-                                          transform=fig.transFigure, ha='left')
-                        text_handles.append(handle)
-                    if "_Imp" in col:
-                        handle = plt.text(0.01, 0.95 - (0.05 * (legend_names.index(col))), text, fontsize=10,
-                                          transform=fig.transFigure, ha='left')
-                        text_handles.append(handle)
+
+                    # 데이터 좌표를 그래프 좌표로 변환
+                    x_display, y_display = ax.transData.transform((x_pos, y_pos))
+
+                    # 텍스트가 그래프 영역을 벗어나지 않도록 좌표 제어
+                    x_display = max(x_display, ax.transData.transform((0, 0))[0] + 10)  # x 좌표
+                    y_display = min(y_display, ax.transData.transform((0, ax.get_ylim()[0]))[1] - 10)  # y 좌표
+
+                    text_handle = ax.text(x_display, y_display, text, fontsize=10, ha='left', va='top')
+                    text_handles.append(text_handle)
+
         fig.canvas.draw_idle()
+
+
 
 # 겹치기 버튼 생성
 overlap_button = tk.Button(button_frame, text="Overlap Graphs", command=overlap_graphs)
