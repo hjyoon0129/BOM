@@ -359,7 +359,7 @@ def plot_graph(df, title, *args):
     ax_vline = ax.axvline(x=0, color='k', linewidth=1, linestyle='--')
 
     # 그래프 오른쪽으로 15% 이동하기 (여백조절하기)
-    fig.subplots_adjust(left=0.3, right=0.95)
+    fig.subplots_adjust(left=0.4, right=0.95)
     fig.canvas.mpl_connect('motion_notify_event', lambda event: plot_graph_on_move(event, df, fig))
     text_handles = []  # 전역 변수로 선언
 
@@ -372,24 +372,51 @@ def plot_graph_on_move(event, df, fig):
         for handle in text_handles:
             handle.remove()
         text_handles = []
+
+        text_list = []  # 텍스트를 저장할 리스트
+        common_prefix = None  # 공통 접두사를 저장할 변수
+
         if graph_type == 'Line':
             for col in df.columns[1:]:
                 if "_SPL0" in col or "_Imp" in col:
                     idx = np.abs(df['Frequency'] - x).argmin()
                     x_pos, y_pos = df['Frequency'][idx], df[col][idx]
-                    x_pos_text = '{:.6g}'.format(x_pos)
                     y_pos_text = '{:.6g}'.format(y_pos)
-                    text = f'{col}: ({x_pos_text}, {y_pos_text})'
-                    if "_SPL0" in col:  # Only add text for _SPL0 and _Imp columns
-                        handle = plt.text(0.01, 0.95 - (0.05 * (legend_names.index(col))), text, fontsize=10,
-                                          transform=fig.transFigure, ha='left')
-                        text_handles.append(handle)
-                    if "_Imp" in col:
-                        handle = plt.text(0.01, 0.95 - (0.05 * (legend_names.index(col))), text, fontsize=10,
-                                          transform=fig.transFigure, ha='left')
-                        text_handles.append(handle)
-        fig.canvas.draw_idle()
+                    prefix = col.split('_')[0]  # 현재 항목의 접두사 추출
 
+                    # 공통 접두사를 초기화하거나 변경합니다.
+                    if common_prefix is None:
+                        common_prefix = prefix
+                        spl0_y = y_pos_text if "_SPL0" in col else ""
+                        imp_y = y_pos_text if "_Imp" in col else ""
+                    elif common_prefix != prefix:
+                        # 같은 이름의 항목을 합쳐서 리스트에 추가합니다.
+                        combined_text = f"{common_prefix}_SPL0({spl0_y})_IMP({imp_y})"
+                        text_list.append(combined_text)
+                        common_prefix = prefix
+                        spl0_y = y_pos_text if "_SPL0" in col else ""
+                        imp_y = y_pos_text if "_Imp" in col else ""
+                    else:
+                        spl0_y = y_pos_text if "_SPL0" in col else spl0_y
+                        imp_y = y_pos_text if "_Imp" in col else imp_y
+            # 십자선 좌표 추가
+            coords_text = f'Hz: {x:.1f}    dB: {y:.1f}\n'
+            text_list.append(coords_text)
+            # 마지막 항목을 리스트에 추가합니다.
+            if common_prefix is not None:
+                combined_text = f"{common_prefix}_SPL({spl0_y})_IMP({imp_y})"
+                text_list.append(combined_text)
+
+        # 리스트의 항목을 하나의 문자열로 합칩니다.
+        combined_text = "\n".join(text_list)
+
+        # 합쳐진 텍스트를 하나의 텍스트 핸들로 표시합니다.
+        if combined_text:
+            handle = plt.text(0.01, 0.95, combined_text, fontsize=10,
+                              transform=fig.transFigure, ha='left', va='top')
+            text_handles.append(handle)
+
+        fig.canvas.draw_idle()
 def overlap_graphs():
     global global_df, text_handles, ax_hline, ax_vline, colors  # 전역 변수로 선언
     global_df = None  # global_df 변수 초기화
@@ -498,7 +525,7 @@ def overlap_graphs_on_move(event, global_df, fig):
                     y_positions.append(y_display)
 
                     # bbox 스타일 설정하여 배경색을 흰색으로 설정
-                    text_handle = ax.text(0.5, y_display, text, fontsize=10, ha='left', va='top', bbox=dict(facecolor='white', edgecolor='none', alpha=1.0)) #alpha : text box 투명도, face color: textbox 배경색
+                    text_handle = ax.text(0.08, y_display, text, fontsize=10, ha='left', va='top', bbox=dict(facecolor='white', edgecolor='none', alpha=1.0)) #alpha : text box 투명도, face color: textbox 배경색
                     text_handles.append(text_handle)
 
             handles, labels = ax.get_legend_handles_labels()

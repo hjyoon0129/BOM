@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import tkinter as tk
 from matplotlib.font_manager import FontProperties
 import numpy as np
+from matplotlib.gridspec import GridSpec
 
 # Matplotlib의 폰트 매니저에 기본 폰트를 지정합니다.
 plt.rcParams['font.family'] = 'Arial'
@@ -308,7 +309,7 @@ def plot_graph(df, title, *args):
     # 그래프 타입을 전역 변수로 가져옴
     graph_type = 'Line'
 
-    fig, ax = plt.subplots(figsize=(15, 10))  # fig 객체도 생성해야 함
+    fig, ax = plt.subplots(figsize=(15, 7))  # fig 객체도 생성해야 함
 
     legend_names = []
     colors = ['k', 'r', 'b', 'g', 'm', 'y', 'k']  # 색상 리스트 생성
@@ -359,7 +360,7 @@ def plot_graph(df, title, *args):
     ax_vline = ax.axvline(x=0, color='k', linewidth=1, linestyle='--')
 
     # 그래프 오른쪽으로 15% 이동하기 (여백조절하기)
-    fig.subplots_adjust(left=0.3, right=0.95)
+    fig.subplots_adjust(left=0.3, right=0.95, bottom=0.3)
     fig.canvas.mpl_connect('motion_notify_event', lambda event: plot_graph_on_move(event, df, fig))
     text_handles = []  # 전역 변수로 선언
 
@@ -372,22 +373,48 @@ def plot_graph_on_move(event, df, fig):
         for handle in text_handles:
             handle.remove()
         text_handles = []
+
+        text_list = []  # 텍스트를 저장할 리스트
+        common_prefix = None  # 공통 접두사를 저장할 변수
+
         if graph_type == 'Line':
             for col in df.columns[1:]:
                 if "_SPL0" in col or "_Imp" in col:
                     idx = np.abs(df['Frequency'] - x).argmin()
                     x_pos, y_pos = df['Frequency'][idx], df[col][idx]
-                    x_pos_text = '{:.6g}'.format(x_pos)
                     y_pos_text = '{:.6g}'.format(y_pos)
-                    text = f'{col}: ({x_pos_text}, {y_pos_text})'
-                    if "_SPL0" in col:  # Only add text for _SPL0 and _Imp columns
-                        handle = plt.text(0.01, 0.95 - (0.05 * (legend_names.index(col))), text, fontsize=10,
-                                          transform=fig.transFigure, ha='left')
-                        text_handles.append(handle)
-                    if "_Imp" in col:
-                        handle = plt.text(0.01, 0.95 - (0.05 * (legend_names.index(col))), text, fontsize=10,
-                                          transform=fig.transFigure, ha='left')
-                        text_handles.append(handle)
+                    prefix = col.split('_')[0]  # 현재 항목의 접두사 추출
+
+                    # 공통 접두사를 초기화하거나 변경합니다.
+                    if common_prefix is None:
+                        common_prefix = prefix
+                        spl0_y = y_pos_text if "_SPL0" in col else ""
+                        imp_y = y_pos_text if "_Imp" in col else ""
+                    elif common_prefix != prefix:
+                        # 같은 이름의 항목을 합쳐서 리스트에 추가합니다.
+                        combined_text = f"{common_prefix}_SPL0({spl0_y})_IMP({imp_y})"
+                        text_list.append(combined_text)
+                        common_prefix = prefix
+                        spl0_y = y_pos_text if "_SPL0" in col else ""
+                        imp_y = y_pos_text if "_Imp" in col else ""
+                    else:
+                        spl0_y = y_pos_text if "_SPL0" in col else spl0_y
+                        imp_y = y_pos_text if "_Imp" in col else imp_y
+
+            # 마지막 항목을 리스트에 추가합니다.
+            if common_prefix is not None:
+                combined_text = f"{common_prefix}_SPL({spl0_y})_IMP({imp_y})"
+                text_list.append(combined_text)
+
+        # 리스트의 항목을 하나의 문자열로 합칩니다.
+        combined_text = "\n".join(text_list)
+
+        # 합쳐진 텍스트를 하나의 텍스트 핸들로 표시합니다.
+        if combined_text:
+            handle = plt.text(0.01, 0.95, combined_text, fontsize=10,
+                              transform=fig.transFigure, ha='left', va='top')
+            text_handles.append(handle)
+
         fig.canvas.draw_idle()
 
 def overlap_graphs():
@@ -473,48 +500,41 @@ def overlap_graphs_on_move(event, global_df, fig):
         for handle in text_handles:
             handle.remove()
         text_handles = []
+
         if graph_type == 'Line':
             ax = plt.gca()
             idx = np.abs(global_df['Frequency'] - x).argmin()
             x_pos = global_df['Frequency'][idx]
             x_pos_text = '{:.6g}'.format(x_pos)
-            y_positions = []
+            text_dict = {}  # 접두사를 키로 가지는 딕셔너리
 
             for col in global_df.columns[1:]:
                 if "_SPL0" in col or "_Imp" in col:
                     y_pos = global_df[col][idx]
-                    y_pos_text = '{:.6g}'.format(y_pos)
-                    text = f'{col}: ({x_pos_text}, {y_pos_text})'
+                    spl0_y = '{:.6g}'.format(y_pos) if "_SPL0" in col else ""
+                    imp_y = '{:.6g}'.format(y_pos) if "_Imp" in col else ""
+                    prefix = col.split('_')[0]  # 현재 항목의 접두사 추출
 
-                    x_display, y_display = ax.transData.transform((x_pos, y_pos))
-                    # 텍스트가 그래프 영역을 벗어나지 않도록 좌표 제어
-                    x_display = max(x_display, ax.transData.transform((0, 0))[0] + 10)  # x 좌표
-                    y_display = min(y_display, ax.transData.transform((0, ax.get_ylim()[0]))[1] - 10)  # y 좌표
+                    # 딕셔너리에 접두사가 없으면 추가, 이미 있다면 SPL과 IMP 정보를 업데이트
+                    if prefix not in text_dict:
+                        text_dict[prefix] = {'SPL0': spl0_y, 'IMP': imp_y}
+                    else:
+                        if "_SPL0" in col:
+                            text_dict[prefix]['SPL0'] = spl0_y
+                        elif "_Imp" in col:
+                            text_dict[prefix]['IMP'] = imp_y
 
+            table_data = []
+            for prefix, values in text_dict.items():
+                table_data.append([f"{prefix}_SPL0", values['SPL0'], values['IMP']])
 
-                    while y_display in y_positions:
-                        y_display += -5
+            table_data = [['Label', 'SPL0', 'IMP']] + table_data
 
-                    y_positions.append(y_display)
-
-                    # bbox 스타일 설정하여 배경색을 흰색으로 설정
-                    text_handle = ax.text(0.5, y_display, text, fontsize=10, ha='left', va='top', bbox=dict(facecolor='white', edgecolor='none', alpha=1.0)) #alpha : text box 투명도, face color: textbox 배경색
-                    text_handles.append(text_handle)
+            table = ax.table(cellText=table_data, colLabels=None,
+                             cellLoc='center', bbox=[0.0005, -0.4, 0.8, 0.2],loc='bottom', edges='closed')
 
             handles, labels = ax.get_legend_handles_labels()
             legend = ax.legend(handles=handles, labels=labels, loc='lower right')
-
-        text_colors = []
-        color_idx = 0
-
-        for col in global_df.columns[1:]:
-            if "_SPL0" in col or "_Imp" in col:
-                text_colors.append(colors[color_idx])
-                if "_Imp" in col:
-                    color_idx = (color_idx + 1) % len(colors)
-
-        for text_handle, color in zip(text_handles, text_colors):
-            text_handle.set_color(color)  # 텍스트 핸들의 색상 설정
 
         fig.canvas.draw_idle()
 

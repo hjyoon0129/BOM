@@ -460,7 +460,7 @@ def overlap_graphs_on_move(event, global_df, fig):
 
 
                     while y_display in y_positions:
-                        y_display += -5
+                        y_display += -0.5
 
                     y_positions.append(y_display)
 

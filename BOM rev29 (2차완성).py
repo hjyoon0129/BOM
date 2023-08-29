@@ -94,28 +94,6 @@ def save_csv_to_database():
         if sanitized_table_name in deleted_tables:
             deleted_tables.remove(sanitized_table_name)
 
-        # Create a new tkinter window for entering information
-        input_window = Toplevel(root)
-        input_window.title("Enter Information")
-
-        label_text = "Enter information:"
-        label = Label(input_window, text=label_text)
-        label.pack()
-
-        entry = Entry(input_window)
-        entry.pack()
-
-        def save_information():
-            information = entry.get()
-            # Do something with the entered information
-            # You can use 'information' variable here
-
-            # Close the input window after saving
-            input_window.destroy()
-
-        save_button = Button(input_window, text="Save", command=save_information)
-        save_button.pack()
-
     # 리스트박스에 데이터베이스에 저장된 테이블 이름 추가
     cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
     table_names = cursor.fetchall()
@@ -359,9 +337,10 @@ def plot_graph(df, title, *args):
     ax_vline = ax.axvline(x=0, color='k', linewidth=1, linestyle='--')
 
     # 그래프 오른쪽으로 15% 이동하기 (여백조절하기)
-    fig.subplots_adjust(left=0.3, right=0.95)
+    fig.subplots_adjust(left=0.4, right=0.95)
     fig.canvas.mpl_connect('motion_notify_event', lambda event: plot_graph_on_move(event, df, fig))
     text_handles = []  # 전역 변수로 선언
+
 
 def plot_graph_on_move(event, df, fig):
     global ax_hline, ax_vline, text_handles, legend_names
@@ -372,23 +351,58 @@ def plot_graph_on_move(event, df, fig):
         for handle in text_handles:
             handle.remove()
         text_handles = []
+
+        text_list = []  # 텍스트를 저장할 리스트
+        common_prefix = None  # 공통 접두사를 저장할 변수
+
         if graph_type == 'Line':
             for col in df.columns[1:]:
                 if "_SPL0" in col or "_Imp" in col:
                     idx = np.abs(df['Frequency'] - x).argmin()
                     x_pos, y_pos = df['Frequency'][idx], df[col][idx]
-                    x_pos_text = '{:.6g}'.format(x_pos)
                     y_pos_text = '{:.6g}'.format(y_pos)
-                    text = f'{col}: ({x_pos_text}, {y_pos_text})'
-                    if "_SPL0" in col:  # Only add text for _SPL0 and _Imp columns
-                        handle = plt.text(0.01, 0.95 - (0.05 * (legend_names.index(col))), text, fontsize=10,
-                                          transform=fig.transFigure, ha='left')
-                        text_handles.append(handle)
-                    if "_Imp" in col:
-                        handle = plt.text(0.01, 0.95 - (0.05 * (legend_names.index(col))), text, fontsize=10,
-                                          transform=fig.transFigure, ha='left')
-                        text_handles.append(handle)
+                    prefix = col.split('_')[0]  # 현재 항목의 접두사 추출
+
+                    # 공통 접두사를 초기화하거나 변경합니다.
+                    if common_prefix is None:
+                        common_prefix = prefix
+                        spl0_y = y_pos_text if "_SPL0" in col else ""
+                        imp_y = y_pos_text if "_Imp" in col else ""
+                    elif common_prefix != prefix:
+                        # 같은 이름의 항목을 합쳐서 리스트에 추가합니다.
+                        combined_text = f"{common_prefix}_SPL0({spl0_y})_IMP({imp_y})"
+                        text_list.append(combined_text)
+                        common_prefix = prefix
+                        spl0_y = y_pos_text if "_SPL0" in col else ""
+                        imp_y = y_pos_text if "_Imp" in col else ""
+                    else:
+                        spl0_y = y_pos_text if "_SPL0" in col else spl0_y
+                        imp_y = y_pos_text if "_Imp" in col else imp_y
+
+            # 십자선 좌표 추가
+            coords_text = f'Hz: {x:.1f}    dB: {y:.1f}\n'
+            text_list.append(coords_text)
+
+            # 마지막 항목을 리스트에 추가합니다.
+            if common_prefix is not None:
+                full_name = col.replace('_Imp', '').replace('.csv', '')  # _Imp와 .csv 제거
+                combined_text = f"SPL({spl0_y})_IMP({imp_y})    {full_name}"
+                text_list.append(combined_text)
+
+        # 리스트의 항목을 하나의 문자열로 합칩니다.
+        combined_text = "\n".join(text_list)
+
+        # 합쳐진 텍스트를 하나의 텍스트 핸들로 표시합니다.
+        if combined_text:
+            handle = plt.text(0.01, 0.95, combined_text, fontsize=10,
+                              transform=fig.transFigure, ha='left', va='top')
+            text_handles.append(handle)
+
         fig.canvas.draw_idle()
+
+
+fig = plt.figure()
+fig.canvas.mpl_connect('motion_notify_event', lambda event: plot_graph_on_move(event, global_df, fig))
 
 def overlap_graphs():
     global global_df, text_handles, ax_hline, ax_vline, colors  # 전역 변수로 선언
@@ -473,45 +487,63 @@ def overlap_graphs_on_move(event, global_df, fig):
         for handle in text_handles:
             handle.remove()
         text_handles = []
+
         if graph_type == 'Line':
             ax = plt.gca()
             idx = np.abs(global_df['Frequency'] - x).argmin()
             x_pos = global_df['Frequency'][idx]
             x_pos_text = '{:.6g}'.format(x_pos)
-            y_positions = []
+            text_dict = {}  # 파일 이름을 키로 가지는 딕셔너리
 
             for col in global_df.columns[1:]:
                 if "_SPL0" in col or "_Imp" in col:
                     y_pos = global_df[col][idx]
-                    y_pos_text = '{:.6g}'.format(y_pos)
-                    text = f'{col}: ({x_pos_text}, {y_pos_text})'
+                    spl0_y = '{:.6g}'.format(y_pos) if "_SPL0" in col else ""
+                    imp_y = '{:.6g}'.format(y_pos) if "_Imp" in col else ""
+                    file_name = os.path.splitext(col)[0]  # 파일 이름 추출 (확장자 제외)
 
-                    x_display, y_display = ax.transData.transform((x_pos, y_pos))
-                    # 텍스트가 그래프 영역을 벗어나지 않도록 좌표 제어
-                    x_display = max(x_display, ax.transData.transform((0, 0))[0] + 10)  # x 좌표
-                    y_display = min(y_display, ax.transData.transform((0, ax.get_ylim()[0]))[1] - 10)  # y 좌표
+                    # 딕셔너리에 파일 이름이 없으면 추가, 이미 있다면 SPL과 IMP 정보를 업데이트
+                    if file_name not in text_dict:
+                        text_dict[file_name] = {'SPL0': spl0_y, 'IMP': imp_y}
+                    else:
+                        if "_SPL0" in col:
+                            text_dict[file_name]['SPL0'] = spl0_y
+                        elif "_Imp" in col:
+                            text_dict[file_name]['IMP'] = imp_y
 
+            y_offsets = [0]  # 텍스트의 y 좌표 오프셋을 저장하는 리스트
 
-                    while y_display in y_positions:
-                        y_display += -5
+            for file_name, values in text_dict.items():
+                combined_text = f"{file_name}_SPL0({values['SPL0']})_IMP({values['IMP']})"
 
-                    y_positions.append(y_display)
+                # 텍스트를 그래프 영역 내에서 표시할 위치 계산
+                x_display, y_display = ax.transData.transform((x_pos, y))
+                x_display = max(x_display, ax.transData.transform((0, 0))[0] + 10)  # x 좌표
+                y_display = min(y_display, ax.transData.transform((0, ax.get_ylim()[0]))[1] - 10)  # y 좌표
 
-                    # bbox 스타일 설정하여 배경색을 흰색으로 설정
-                    text_handle = ax.text(0.5, y_display, text, fontsize=10, ha='left', va='top', bbox=dict(facecolor='white', edgecolor='none', alpha=1.0)) #alpha : text box 투명도, face color: textbox 배경색
-                    text_handles.append(text_handle)
+                y_offset = 0
+                for offset in y_offsets:
+                    if abs(y_display - offset) < 20:  # 겹치는 경우 y 좌표 조정
+                        y_offset += 5
+                y_display -= y_offset
+                y_offsets.append(y_display)
+
+                text_handle = ax.text(0.1, y_display, combined_text, fontsize=10, ha='left', va='bottom', rotation=0)
+                text_handles.append(text_handle)
+
+            # 십자선 좌표 추가
+            coords_text = f'Hz: {x:.1f}    dB: {y:.1f}\n'
+            text_handle = plt.text(0.09, 0.9, coords_text, fontsize=10, ha='center', va='bottom',
+                                   transform=fig.transFigure)
+            text_handles.append(text_handle)
 
             handles, labels = ax.get_legend_handles_labels()
             legend = ax.legend(handles=handles, labels=labels, loc='lower right')
 
         text_colors = []
-        color_idx = 0
 
-        for col in global_df.columns[1:]:
-            if "_SPL0" in col or "_Imp" in col:
-                text_colors.append(colors[color_idx])
-                if "_Imp" in col:
-                    color_idx = (color_idx + 1) % len(colors)
+        for _ in range(len(text_handles)):
+            text_colors.append(colors[0])  # 첫번째 색상을 사용
 
         for text_handle, color in zip(text_handles, text_colors):
             text_handle.set_color(color)  # 텍스트 핸들의 색상 설정
@@ -519,6 +551,8 @@ def overlap_graphs_on_move(event, global_df, fig):
         fig.canvas.draw_idle()
 
 fig = plt.figure()
+fig.canvas.mpl_connect('motion_notify_event', lambda event: overlap_graphs_on_move(event, global_df, fig))
+
 
 # 겹치기 버튼 생성
 overlap_button = tk.Button(button_frame, text="Overlap Graphs", command=overlap_graphs)
