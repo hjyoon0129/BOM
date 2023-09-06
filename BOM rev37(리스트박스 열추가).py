@@ -57,18 +57,21 @@ def select_csv_files():
     for file in csv_filenames:
         list_file.insert(END, os.path.basename(file))
 
-# 데이터베이스에 CSV 파일을 저장하는 함수
+def show_information_input_window():
+    # 텍스트 입력 창을 생성하고 텍스트를 입력할 수 있게 합니다.
+    # 이 함수를 사용하여 텍스트 내용을 입력 받을 수 있습니다.
+    pass
+
 def save_csv_to_database():
     global deleted_tables
 
-    # 텍스트 입력 창 띄우기
-    show_information_input_window()
-
     connection = sqlite3.connect('data.db')
+    cursor = connection.cursor()  # 커서를 만듭니다
+
     for filename in csv_filenames:
         # 1~4번째 라인을 스킵하고 5번째 라인부터 데이터를 읽어들임
         df = pd.read_csv(filename, encoding='cp949', skiprows=4, header=0)
-        # 각 csv파일중 원하는 행 추출
+        # 각 csv 파일 중 원하는 행 추출
         df = df.iloc[:, [0, 1, 2]]
         # 파일 이름을 가져와서 열 이름 변경
         spl0_col_name = os.path.basename(filename) + "_SPL0"
@@ -81,32 +84,26 @@ def save_csv_to_database():
         sanitized_table_name = re.sub(r"[^\w]", "_", table_name)
 
         df.to_csv(os.path.join(data_folder, os.path.basename(filename)), index=False, encoding='cp949')
-        df.to_sql(sanitized_table_name, connection, if_exists='replace', index=False)
+
+        # 기존 테이블에 데이터를 추가합니다.
+        df.to_sql(sanitized_table_name, connection, if_exists='append', index=False)
 
         if sanitized_table_name in deleted_tables:
             deleted_tables.remove(sanitized_table_name)
 
-    # saved_information 테이블 생성 (이미 생성되어 있어도 상관없으므로 CREATE TABLE IF NOT EXISTS 사용)
-    cursor.execute('''CREATE TABLE IF NOT EXISTS saved_information (
-                        id INTEGER PRIMARY KEY,
-                        info_text TEXT)''')
-    connection.commit()
+        # 리스트박스를 비워줍니다.
+        list_file.delete(0, END)
 
+            # 데이터베이스에 저장된 테이블 이름을 리스트박스에 추가합니다.
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
+        table_names = cursor.fetchall()
+        table_names = [name[0] for name in table_names]
+        table_names = [name for name in table_names if name not in deleted_tables]
 
-    # 리스트박스에 데이터베이스에 저장된 테이블 이름 추가
-    cursor.execute("SELECT name FROM sqlite_master WHERE type='table'",)
-    table_names = cursor.fetchall()
-    table_names = [name[0] for name in table_names]
+        for table_name in table_names:
+            list_file.insert(END, table_name)
 
-    # 이전에 삭제한 테이블은 목록에 추가하지 않음
-    table_names = [name for name in table_names if name not in deleted_tables]
-
-    list_file.delete(0, END)
-    for table_name in table_names:
-        list_file.insert(END, table_name)
-
-    connection.close()
-
+        connection.close()
 
 # Matplotlib 폰트 설정 (예시로 나눔고딕 폰트를 사용합니다.)
 plt.rcParams["font.family"] = "NanumGothic"
@@ -138,45 +135,6 @@ def delete_selected_table():
             print("Error while deleting table:", e)
         finally:
             connection.close()
-
-# 정보를 표시할 라벨 생성 및 배치
-info_label = None  # 전역 변수로 선언
-
-# 정보 입력 창을 띄우는 함수
-def show_information_input_window():
-    global text_entry, input_window
-    input_window = tk.Toplevel()
-    input_window.title("Enter Information")
-
-    text_entry = tk.Text(input_window, wrap=tk.WORD, height=10, width=40)
-    text_entry.pack()
-
-    save_button = tk.Button(input_window, text="Save", command=save_information_and_update)
-    save_button.pack()
-
-    global info_label  # 전역 변수 참조
-    info_label = tk.Label(root, text="", wraplength=400)
-    info_label.pack()
-
-# 저장 버튼에 연결되는 함수
-def save_information_and_update():
-    global selected_information, info_label  # 전역 변수로 사용
-
-    selected_information = text_entry.get("1.0", "end-1c")  # 입력된 정보 저장
-
-    # SQLite 데이터베이스에 저장
-    connection = sqlite3.connect(db_file)
-    cursor = connection.cursor()
-    cursor.execute("INSERT INTO saved_information (info_text) VALUES (?)", (selected_information,))
-    connection.commit()
-    connection.close()
-
-    if info_label:
-        # 정보 라벨 업데이트
-        info_label.config(text=selected_information)
-
-    # Close the input window after saving
-    input_window.destroy()
 
 # 테이블 선택 시 내용 출력
 def search_table():
@@ -294,6 +252,8 @@ def on_table_select(event):
         initial_values["y_cols"].append(col_name)  # y 컬럼 초기값 설정
 list_file.bind("<<ListboxSelect>>", on_table_select)
 
+
+
 # 그래프 창을 닫는 함수
 def close_graph_window():
     global graph_frame, graph_canvas
@@ -304,8 +264,28 @@ def close_graph_window():
         graph_frame.close_button.destroy()
         delattr(graph_frame, 'close_button')
 
+# 그래프 초기 상태의 x, y 축 범위 저장
+original_x_limits = None
+original_y_limits = None
+
+def reset_axes():
+    global ax, original_x_limits, original_y_limits
+    ax.set_xlim(original_x_limits)
+    ax.set_ylim(original_y_limits)
+    overlap_graphs()  # 오버랩 그래프 다시 그리기
+    graph_frame.canvas.draw_idle()
+
+def reset_graph():
+    global ax, original_x_limits, original_y_limits
+    if hasattr(ax, 'get_lines'):  # ax에 'get_lines' 속성이 있는지 확인
+        reset_axes()
+        plot_graph_on_move(event=None, df=ax.df, fig=None)  # global_df 대신 ax.df 사용
+        text_handles.clear()
+
+        graph_frame.canvas.draw_idle()
+
 def show_table_contents(event):
-    global selected_information  # 전역 변수로 사용
+    global selected_information, ax, original_x_limits, original_y_limits
     selected_table = list_file.get(list_file.curselection())
     if selected_table:
         connection = sqlite3.connect(db_file)
@@ -315,29 +295,41 @@ def show_table_contents(event):
         try:
             cursor.execute("SELECT * FROM {}".format(sanitized_table))
             df = pd.DataFrame(cursor.fetchall(), columns=[col[0] for col in cursor.description])
-            print(df)
 
             # 그래프 그리기
-            plot_graph(df, selected_table)
+            ax = plot_graph(df, selected_table)  # ax를 전역 변수로 저장
+            ax.df = df  # 그래프에 해당 DataFrame을 연결
 
-            # SQLite에서 저장된 정보 가져오기
-            cursor.execute("SELECT info_text FROM saved_information ORDER BY rowid DESC LIMIT 1")
-            selected_information = cursor.fetchone()
-            if selected_information:
-                selected_information = selected_information[0]
+            # Reset graph axes when resetting
+            original_x_limits = ax.get_xlim()
+            original_y_limits = ax.get_ylim()
 
-                # tkinter 창에 정보 표시
-                info_label.config(text=selected_information)
+            # 선택한 테이블에서 텍스트 내용을 가져옵니다.
+            connection = sqlite3.connect('data.db')
+            cursor = connection.cursor()
+            cursor.execute(f"SELECT text_content FROM {table_name}")
+            text_content = cursor.fetchone()
+            connection.close()
+
+            if text_content:
+                # 텍스트 내용을 tkinter를 사용하여 표시합니다.
+                root = tk.Tk()
+                text_widget = tk.Text(root)
+                text_widget.insert(tk.END, text_content[0])
+                text_widget.pack()
+                root.mainloop()
+            else:
+                messagebox.showinfo("Information", "No text content available for this table.")
+
+
         except sqlite3.Error as e:
             print("Error while fetching data from table:", e)
         finally:
             connection.close()
+    print("Current x-axis limits:", ax.get_xlim())
+    print("Current y-axis limits:", ax.get_ylim())
 
-# 전역 변수로 설정된 기본 값
-default_x_min = None
-default_x_max = None
-default_y_min = None
-default_y_max = None
+
 
 # 그래프를 그리는 함수
 def plot_graph(df, title, *args):
@@ -381,6 +373,24 @@ def plot_graph(df, title, *args):
     plt.grid(True)
     plt.legend()
     plt.xscale('log')  # x축을 로그 스케일로 설정
+
+    # x축에 주선과 보조선 추가
+    x_min, x_max = ax.get_xlim()
+    x_ticks_major = [tick for tick in ax.get_xticks() if x_min <= tick <= x_max]
+    x_ticks_minor = [tick for tick in ax.get_xticks(minor=True) if x_min <= tick <= x_max]
+    ax.set_xticks(x_ticks_major)
+    ax.set_xticks(x_ticks_minor, minor=True)
+    ax.xaxis.grid(True, linestyle='-', linewidth=0.8)
+    ax.xaxis.grid(True, which='minor', linestyle='--', linewidth=0.5)
+
+    # y축에 보조선 추가
+    y_min, y_max = ax.get_ylim()
+    y_ticks_major = range(int(y_min), int(y_max) + 1, 10)
+    y_ticks_minor = range(int(y_min) + 2, int(y_max) + 1, 2)
+    ax.set_yticks(y_ticks_major)
+    ax.set_yticks(y_ticks_minor, minor=True)
+    ax.yaxis.grid(True, linestyle='-', linewidth=0.8)
+    ax.yaxis.grid(True, which='minor', linestyle='--', linewidth=0.5)
 
     # 그래프를 tkinter 창에 출력
     if hasattr(graph_frame, 'canvas'):
@@ -436,7 +446,7 @@ def plot_graph_on_move(event, df, fig):
                         text_list.append(combined_text)
                         common_prefix = prefix
                         spl0_y = y_pos_text if "_SPL0" in col else ""
-                        imp_y = y_pos_text if "_Imp" in col else ""
+                        imp_y = y_pos_text if "_Imp" in col else imp_y
                     else:
                         spl0_y = y_pos_text if "_SPL0" in col else spl0_y
                         imp_y = y_pos_text if "_Imp" in col else imp_y
@@ -447,7 +457,7 @@ def plot_graph_on_move(event, df, fig):
 
             # 마지막 항목을 리스트에 추가합니다.
             if common_prefix is not None:
-                full_name = col.replace('_Imp', '').replace('.csv', '')  # _Imp와 .csv 제거
+                full_name = common_prefix.replace('_Imp', '').replace('.csv', '')  # _Imp와 .csv 제거
                 combined_text = f"SPL({spl0_y})_IMP({imp_y})    {full_name}"
                 text_list.append(combined_text)
 
@@ -526,11 +536,31 @@ def overlap_graphs():
     graph_frame.canvas.draw()
     graph_frame.canvas.get_tk_widget().pack()
 
-    handles, labels = plt.gca().get_legend_handles_labels()  # 현재 Axes의 legend 정보를 가져옴
-    plt.gca().legend(handles=handles, labels=labels, loc='best')  # 범례 위치를 조정
+    ax = plt.gca()  # 현재 Axes 객체를 가져옴
 
-    ax_hline = plt.gca().axhline(y=0, color='k', linewidth=1, linestyle='--')
-    ax_vline = plt.gca().axvline(x=0, color='k', linewidth=1, linestyle='--')
+    # x축에 주선과 보조선 추가
+    x_min, x_max = ax.get_xlim()
+    x_ticks_major = [tick for tick in ax.get_xticks() if x_min <= tick <= x_max]
+    x_ticks_minor = [tick for tick in ax.get_xticks(minor=True) if x_min <= tick <= x_max]
+    ax.set_xticks(x_ticks_major)
+    ax.set_xticks(x_ticks_minor, minor=True)
+    ax.xaxis.grid(True, linestyle='-', linewidth=0.8)
+    ax.xaxis.grid(True, which='minor', linestyle='--', linewidth=0.5)
+
+    # y축에 주선과 보조선 추가
+    y_min, y_max = ax.get_ylim()
+    y_ticks_major = range(int(y_min), int(y_max) + 1, 10)
+    y_ticks_minor = range(int(y_min) + 2, int(y_max) + 1, 2)
+    ax.set_yticks(y_ticks_major)
+    ax.set_yticks(y_ticks_minor, minor=True)
+    ax.yaxis.grid(True, linestyle='-', linewidth=0.8)
+    ax.yaxis.grid(True, which='minor', linestyle='--', linewidth=0.5)
+
+    handles, labels = ax.get_legend_handles_labels()  # 현재 Axes의 legend 정보를 가져옴
+    ax.legend(handles=handles, labels=labels, loc='best')  # 범례 위치를 조정
+
+    ax_hline = ax.axhline(y=0, color='k', linewidth=1, linestyle='--')
+    ax_vline = ax.axvline(x=0, color='k', linewidth=1, linestyle='--')
 
     fig = plt.gcf()  # 현재 그래프의 fig 객체를 가져옴
     fig.canvas.mpl_connect('motion_notify_event', lambda event: overlap_graphs_on_move(event, global_df, fig))
@@ -544,8 +574,6 @@ def overlap_graphs_on_move(event, global_df, fig):
     global text_handles, legend_names, colors
     if event.inaxes:
         x, y = event.xdata, event.ydata
-        ax_hline.set_ydata([y] * len(ax_hline.get_xdata()))
-        ax_vline.set_xdata([x] * len(ax_vline.get_ydata()))
         for handle in text_handles:
             handle.remove()
         text_handles = []
@@ -554,7 +582,6 @@ def overlap_graphs_on_move(event, global_df, fig):
             ax = plt.gca()
             idx = np.abs(global_df['Frequency'] - x).argmin()
             x_pos = global_df['Frequency'][idx]
-            x_pos_text = '{:.6g}'.format(x_pos)
             text_dict = {}  # 파일 이름을 키로 가지는 딕셔너리
 
             for col in global_df.columns[1:]:
@@ -564,7 +591,6 @@ def overlap_graphs_on_move(event, global_df, fig):
                     imp_y = '{:.6g}'.format(y_pos) if "_Imp" in col else ""
                     file_name = os.path.splitext(col)[0]  # 파일 이름 추출 (확장자 제외)
 
-                    # 딕셔너리에 파일 이름이 없으면 추가, 이미 있다면 SPL과 IMP 정보를 업데이트
                     if file_name not in text_dict:
                         text_dict[file_name] = {'SPL0': spl0_y, 'IMP': imp_y}
                     else:
@@ -573,52 +599,51 @@ def overlap_graphs_on_move(event, global_df, fig):
                         elif "_Imp" in col:
                             text_dict[file_name]['IMP'] = imp_y
 
-            y_offsets = [0]  # 텍스트의 y 좌표 오프셋을 저장하는 리스트
+            y_offsets = [0]
+            y_display_prev = 0  # 이전 텍스트 핸들의 y 위치
 
             for file_name, values in text_dict.items():
                 combined_text = f"{file_name}_SPL0({values['SPL0']})_IMP({values['IMP']})"
-
-                # 텍스트를 그래프 영역 내에서 표시할 위치 계산
                 x_display, y_display = ax.transData.transform((x_pos, y))
-                x_display = max(x_display, ax.transData.transform((0, 0))[0] + 10)  # x 좌표
-                y_display = min(y_display, ax.transData.transform((0, ax.get_ylim()[0]))[1] - 10)  # y 좌표
+                x_display = max(x_display, ax.transData.transform((0, 0))[0] + 10)
 
-                y_offset = 0
-                for offset in y_offsets:
-                    if abs(y_display - offset) < 20:  # 겹치는 경우 y 좌표 조정
-                        y_offset += 5
-                y_display -= y_offset
-                y_offsets.append(y_display)
+                # y 위치 계산을 변경하여 이전 텍스트 핸들보다 아래에 위치하도록 함
+                y_display = max(y_display_prev + 5, ax.transData.transform((0, ax.get_ylim()[0]))[1] + 30)
 
-                text_handle = ax.text(0.1, y_display, combined_text, fontsize=10, ha='left', va='bottom', rotation=0)
+                # 이전 y 위치 갱신
+                y_display_prev = y_display
+
+                # 텍스트 핸들의 y 위치를 그래프의 y 범위 내로 조정
+                y_display = max(y_display, ax.transData.transform((0, ax.get_ylim()[0]))[1] + 5)
+                y_display = min(y_display, ax.transData.transform((0, ax.get_ylim()[1]))[1] - 5)
+
+                text_handle = ax.text(8, y_display, combined_text, fontsize=10, ha='left', va='bottom', rotation=0)
                 text_handles.append(text_handle)
 
             # 십자선 좌표 추가
             coords_text = f'Hz: {x:.1f}    dB: {y:.1f}\n'
-            text_handle = plt.text(0.09, 0.9, coords_text, fontsize=10, ha='center', va='bottom',
+            text_handle = plt.text(0.48, 0.05, coords_text, fontsize=10, ha='left', va='top',
                                    transform=fig.transFigure)
+            text_handle.set_color('black')  # 검정색으로 설정
             text_handles.append(text_handle)
 
-            handles, labels = ax.get_legend_handles_labels()
-            legend = ax.legend(handles=handles, labels=labels, loc='lower right')
+            text_colors = [colors[i % len(colors)] for i in range(len(text_handles))]
+            text_colors[-1] = 'black'  # 마지막 항목(십자선 텍스트)의 색상을 검정으로 설정
 
-        text_colors = []
+            for text_handle, color in zip(text_handles, text_colors):
+                text_handle.set_color(color)
 
-        for _ in range(len(text_handles)):
-            text_colors.append(colors[0])  # 첫번째 색상을 사용
-
-        for text_handle, color in zip(text_handles, text_colors):
-            text_handle.set_color(color)  # 텍스트 핸들의 색상 설정
-
-        fig.canvas.draw_idle()
+            fig.canvas.draw_idle()
 
 fig = plt.figure()
 fig.canvas.mpl_connect('motion_notify_event', lambda event: overlap_graphs_on_move(event, global_df, fig))
 
 
+
 # 겹치기 버튼 생성
 overlap_button = tk.Button(button_frame, text="Overlap Graphs", command=overlap_graphs)
 overlap_button.pack(side=tk.LEFT)
+
 def reset_overlapping_graphs():
     global text_handles, legend_names
     # 그래프 및 관련 객체 초기화
@@ -642,6 +667,7 @@ reset_overlap_button.pack(side=tk.LEFT)
 # 리스트박스가 변경되었을 때 show_table_contents 함수를 호출하도록 바인딩
 list_file.bind('<<ListboxSelect>>', show_table_contents)
 
+
 def adjust_axis_scale():
     global initial_values  # Access the global initial_values dictionary
     x_min_text = x_min_entry.get()
@@ -655,7 +681,8 @@ def adjust_axis_scale():
         x_max = float(x_max_text) if x_max_text else None
 
         if x_min == 0:
-            x_min = 0.01
+            messagebox.showwarning("Warning", "X축 최소값으로 0보다 큰 값을 입력해주세요.")
+            return
 
         ax.set_xlim(x_min, x_max)
 
@@ -667,7 +694,8 @@ def adjust_axis_scale():
         y_max = float(y_max_text) if y_max_text else None
 
         if y_min == 0:
-            y_min = 0.01
+            messagebox.showwarning("Warning", "Y축 최소값으로 0보다 큰 값을 입력해주세요.")
+            return
 
         ax.set_ylim(y_min, y_max)
 
@@ -676,25 +704,6 @@ def adjust_axis_scale():
 
     graph_frame.canvas.draw()
 
-def reset_graph():
-    global initial_values, graph_frame
-    initial_values = {
-        "x_min": None,
-        "x_max": None,
-        "y_min": None,
-        "y_max": None
-    }
-    x_min_entry.delete(0, tk.END)
-    x_max_entry.delete(0, tk.END)
-    y_min_entry.delete(0, tk.END)
-    y_max_entry.delete(0, tk.END)
-    adjust_axis_scale()
-
-    # x축 및 y축 스케일 조정
-    ax = plt.gca()
-    ax.set_xlim(20, 20000)
-    ax.set_ylim(0, 110)
-    graph_frame.canvas.draw()
 
 # 그래프 영역 아래에 입력 요소 및 스케일 조정 버튼 배치
 input_frame = tk.Frame(graph_frame)
@@ -737,6 +746,5 @@ scale_button.grid(row=0, column=8, rowspan=2, padx=5, pady=5)
 # 리셋 버튼
 reset_button = tk.Button(input_frame, text="Reset Graph", command=reset_graph)
 reset_button.grid(row=0, column=9, rowspan=2, padx=5, pady=5)
-
 
 root.mainloop()
