@@ -303,14 +303,17 @@ text_widget = tk.Text(root, width=55, height=20)
 text_widget.config(state=tk.DISABLED, bg='#CCCCCC')
 text_widget.pack(side=tk.TOP, anchor='w')
 
+# 버튼을 담을 프레임 생성
+text_frame = tk.Frame(root)
+text_frame.pack(side=tk.TOP, anchor='w')
+
 # 수정 버튼 생성
-edit_button = tk.Button(root, text="수정", command=lambda: text_widget.config(state=tk.NORMAL,bg='white'))
-edit_button.pack(side=tk.TOP, anchor='w')
+edit_button = tk.Button(text_frame, text="Text modify", command=lambda: text_widget.config(state=tk.NORMAL, bg='white'))
+edit_button.pack(side=tk.LEFT)
 
 # 저장 버튼 생성
-save_button = tk.Button(root, text="저장", command=update_text)
-save_button.pack(side=tk.TOP, anchor='w')
-
+save_button = tk.Button(text_frame, text="Text save", command=update_text)
+save_button.pack(side=tk.LEFT)
 
 def on_table_select(event):
     global initial_values
@@ -369,6 +372,7 @@ def show_table_contents(event):
     selected_table = list_file.get(list_file.curselection())
 
     if selected_table:
+        show_input_frame()
         # SQLite 데이터베이스에 연결합니다.
         connection = sqlite3.connect(db_file)
         cursor = connection.cursor()
@@ -581,7 +585,7 @@ def overlap_graphs():
     for col in selected_columns:
         cursor.execute(f"SELECT * FROM {col}")
         df = pd.DataFrame(cursor.fetchall(), columns=[col[0] for col in cursor.description])
-
+        df = df.drop("text", axis=1)  # "text" 열이 있다면 삭제합니다.
         if 'Frequency' not in df.columns:
             connection.close()
             return
@@ -682,21 +686,23 @@ def overlap_graphs_on_move(event, global_df, fig):
                             text_dict[file_name]['IMP'] = imp_y
 
             y_offsets = [0]
-
+            y_offset_step = 5  # 텍스트 핸들 간의 간격
             for file_name, values in text_dict.items():
                 combined_text = f"{file_name}_SPL0({values['SPL0']})_IMP({values['IMP']})"
                 x_display, y_display = ax.transData.transform((x_pos, y))
                 x_display = max(x_display, ax.transData.transform((0, 0))[0] + 10)
                 y_display = min(y_display, ax.transData.transform((0, ax.get_ylim()[0]))[1] + 30)
 
+
+
                 first_handle_offset = 0
                 y_offset = first_handle_offset
                 for offset in y_offsets:
-                    if abs(y_display - offset) < 110:
-                        y_offset += 5
+                    if abs(y_display - offset) < 20:
+                        y_display += y_offset_step  # 겹치는 경우 간격을 늘립니다.
 
-                y_display -= y_offset
                 y_offsets.append(y_display)
+
 
                 # 텍스트 핸들의 y 위치를 그래프의 y 범위 내로 조정
                 y_display = max(y_display, ax.transData.transform((0, ax.get_ylim()[0]))[1] + 5)
@@ -797,9 +803,13 @@ def adjust_axis_scale():
     graph_frame.canvas.draw()
 
 
+
 # 그래프 영역 아래에 입력 요소 및 스케일 조정 버튼 배치
 input_frame = tk.Frame(graph_frame)
 input_frame.pack(side=tk.BOTTOM, padx=10, pady=10)
+
+# 입력 요소를 숨김 (처음에는 숨겨진 상태)
+input_frame.grid_remove()
 
 # x축 및 y축 라벨
 x_label = tk.Label(input_frame, text="X-axis:", anchor="w")
@@ -838,5 +848,16 @@ scale_button.grid(row=0, column=8, rowspan=2, padx=5, pady=5)
 # 리셋 버튼
 reset_button = tk.Button(input_frame, text="Reset Graph", command=reset_graph)
 reset_button.grid(row=0, column=9, rowspan=2, padx=5, pady=5)
+
+# 입력 요소를 숨기는 함수
+def hide_input_frame():
+    input_frame.pack_forget()
+
+# 입력 요소를 나타내는 함수
+def show_input_frame():
+    input_frame.pack(side=tk.BOTTOM, padx=10, pady=10)
+
+# 처음에는 입력 요소를 숨김
+hide_input_frame()
 
 root.mainloop()
